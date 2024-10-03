@@ -1,0 +1,2 @@
+add progress plot when iterating, showing the timestreams and pks that were not detected before or are not detected anymore
+add saving fig and data
