@@ -4,6 +4,7 @@ import functions as f
 from scipy.signal import fftconvolve
 import matplotlib as mpl
 import os
+import copy
 
 try:
     plt.style.use('matplotlibrc')
@@ -13,6 +14,15 @@ except:
 
 
 def pulse_analysis(dir, kid, pread, file_type, chuncksize, nr_chuncks, pw, pw_offset, filter, lifetime, mph, mpp, iterate=True, exclude_dc=True, plot=False, tmax=5, coord='smith', response='phase', fit_tqp=None):
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    b, o, y, p, g, lb, r = colors
+    pulse_color = b
+    noise_color = 'tab:gray'
+    smooth_color = o
+    single_color = 'tab:green'
+    not_single_color = r
+    mp_color = r
+    
     dir = dir.replace("\\", '/')
     pulse_files, info_files = f.get_files(dir, kid, pread, type=file_type)
     folders = dir.split('/')
@@ -37,6 +47,7 @@ def pulse_analysis(dir, kid, pread, file_type, chuncksize, nr_chuncks, pw, pw_of
 
     window = f.get_window(filter, sw)
     analysed_files = 0
+    made_copy = 0
     while analysed_files < nr_req_files:
         if analysed_files + chuncksize > nr_files:
             chuncksize = nr_files - analysed_files
@@ -68,13 +79,44 @@ def pulse_analysis(dir, kid, pread, file_type, chuncksize, nr_chuncks, pw, pw_of
         print('Analysed %d out of %d files' % (analysed_files, nr_req_files), end='\r')
         if iterate:
             mean_pulse = np.mean(pulses_chunck, axis=0)
+            copy_window = copy.copy(window)
             window = f.opt_filter(mean_pulse, noise_psd, exclude_dc=False).real
-            # window = mean_pulse[::-1]
             window /= np.sum(window)
             analysed_files = 0
             iterate -= 1
-    print('Analysed %d out of %d files' % (analysed_files, nr_req_files))
+            copy_locs = copy.copy(locs)
+            copy_std = copy.copy(std)
+            copy_heights = copy.copy(props['peak_heights'])
+            made_copy = 1
+        if made_copy and analysed_files:
+            new_locs = np.setdiff1d(locs, copy_locs)
+            removed_locs = np.setdiff1d(copy_locs, locs)
+            new_heights = props['peak_heights']
+            fig, axes = plt.subplot_mosaic('ab', constrained_layout=True, figsize=(8, 4)) 
+            t = np.linspace(0, (len(signal)-1)*dt, len(signal))
+            window_offset = int(np.argmax(window[::-1]))
+            t_smooth = t[window_offset:-len(window)+window_offset+1]
+            smoothed_signal = fftconvolve(signal, window, mode='valid')
+            ax = axes['a']
+            ax.plot(t, signal, lw=.1, c=pulse_color, zorder=0, alpha=.5, label='response')
+            ax.plot(t_smooth, smoothed_signal, lw=.5, zorder=1, c=smooth_color, label='smoothed response')
+            ax.scatter(t[new_locs], smoothed_signal[new_locs-window_offset], facecolor='None', edgecolor=single_color, marker='v', zorder=2, label='%d added' % len(new_locs))
+            ax.axhline(mph[0]*std, zorder=2, c=mp_color, lw=.5, label='mph=%d$\\sigma$' % (mph[0]))
+            ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
+                ncols=6, mode="expand", borderaxespad=0., fontsize=9)
+            ax = axes['b']
+            window_offset = int(np.argmax(copy_window[::-1]))
+            t_smooth = t[window_offset:-len(copy_window)+window_offset+1]
+            smoothed_signal = fftconvolve(signal, copy_window, mode='valid')
+            ax.plot(t, signal, lw=.1, c=pulse_color, zorder=0, alpha=.5, label='response')
+            ax.plot(t_smooth, smoothed_signal, lw=.5, zorder=1, c=smooth_color, label='smoothed response')
+            ax.scatter(t[removed_locs], smoothed_signal[removed_locs-window_offset], facecolor='None', edgecolor=not_single_color, marker='o', zorder=2, label='%d removed' % len(removed_locs))
+            ax.axhline(mph[0]*copy_std, zorder=2, c=mp_color, lw=.5, label='mph=%d$\\sigma$' % (mph[0]))
+            ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
+                ncols=6, mode="expand", borderaxespad=0., fontsize=9)
+            made_copy = 0
 
+    print('Analysed %d out of %d files' % (analysed_files, nr_req_files))
 
     t_file = len(signal)*dt / chuncksize
     t_files = analysed_files*t_file
@@ -128,16 +170,6 @@ def pulse_analysis(dir, kid, pread, file_type, chuncksize, nr_chuncks, pw, pw_of
         too_close_locs = too_close_locs[too_close_locs < max]
         too_high_locs = too_high_locs[too_high_locs < max]
         title += '\n KID%d, -%d dBm' % (kid, pread)
-        
-
-        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-        b, o, y, p, g, lb, r = colors
-        pulse_color = b
-        noise_color = 'tab:gray'
-        smooth_color = o
-        single_color = 'tab:green'
-        not_single_color = r
-        mp_color = r
 
         fig, axes = plt.subplot_mosaic('bbbb;faec', figsize=(12, 6), constrained_layout=True, num=str(dir))
         fig.suptitle(title)
