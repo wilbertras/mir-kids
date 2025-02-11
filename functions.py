@@ -400,3 +400,6 @@ def get_window(type, tau):
     else:
         raise Exception('Windowtype was given as %s. Please input a correct window type: "exp", "box" or "None"' % type)
     return y[::-1]
+
+
+
