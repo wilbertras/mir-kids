@@ -3,14 +3,8 @@ import matplotlib.pyplot as plt
 import functions as f
 from scipy.signal import fftconvolve
 import matplotlib as mpl
-import os
 import copy
-
-try:
-    plt.style.use('matplotlibrc')
-except:
-    print('mpl stylesheet not used')
-    pass
+import matplotlibcolors
 
 
 def pulse_analysis(dir, kid, pread, file_type, chuncksize, nr_chuncks, pw, pw_offset, filter, lifetime, mph, mpp, iterate=True, exclude_dc=True, plot=False, tmax=5, coord='smith', response='phase', fit_tqp=None):
@@ -68,10 +62,11 @@ def pulse_analysis(dir, kid, pread, file_type, chuncksize, nr_chuncks, pw, pw_of
         too_high_chunck = props['peak_heights'] >= ph[1]
         args = np.argwhere(~too_high_chunck).flatten()
         pulses_chunck, single_idx_chunck = f.get_single_pulses(signal, locs, pw, pw_offset, args)
-        pulses.append(pulses_chunck)
-        single_idx.append(single_idx_chunck)
-        too_high_idx.append(too_high_chunck)
-        single_locs.append(locs[single_idx_chunck] + len_file*analysed_files)
+        if len(pulses_chunck):
+            pulses.append(pulses_chunck)
+            single_idx.append(single_idx_chunck)
+            too_high_idx.append(too_high_chunck)
+            single_locs.append(locs[single_idx_chunck] + len_file*analysed_files)
         if analysed_files==0:
             noises = f.get_single_noises(signal, locs, pw+pw_offset)
             _, noise_psd = f.get_avg_psd(noises, pw+pw_offset, sff, exclude_dc=False, onesided=False)
@@ -252,4 +247,4 @@ def pulse_analysis(dir, kid, pread, file_type, chuncksize, nr_chuncks, pw, pw_of
         ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
                 ncols=3, mode="expand", borderaxespad=0., fontsize=9)
         
-
+    return pulses

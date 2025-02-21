@@ -7,7 +7,7 @@ from scipy.fft import fft, ifft
 from scipy.stats import gaussian_kde
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
-import os
+import matplotlibcolors
 
 
 def get_files(dir_path, kid_nr, p_read, type='vis'):

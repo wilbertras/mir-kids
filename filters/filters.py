@@ -1,6 +1,7 @@
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import scipy.constants as sc
+from scipy.signal import savgol_filter
 import numpy as np
 import pandas as pd
 
@@ -29,11 +30,11 @@ def load_all_filters():
     wl38, theta38 = load_rawdata('filters/38um/merged.csv')
     theta38 = interp1d(wl38, theta38, kind='linear', bounds_error=False, fill_value=(1e-2, 1e-2))(wls)
     theta38[theta38 < 1e-3] = 1e-3
+    theta38 = savgol_filter(theta38, 51, 3)
     x_fir = np.array([70, 90, 100, 200, 300, 400, 500])*1e-6
     y_fir = np.array([0, .025, .05, .35, .6, .7, .8])
     irfs_fir = interp1d(x_fir, y_fir, kind='linear', bounds_error=False, fill_value=(0, .8))(wls)
     theta38 += irfs_fir
-
 
     wl85, theta85 = load_rawdata('filters/85um/merged.csv')
     theta85 = interp1d(wl85, theta85, kind='linear', bounds_error=False, fill_value=(1e-2, .3))(wls)
@@ -95,6 +96,10 @@ def load_all_filters():
         filters.append(filter)
     [theta25, SP_A, SP_B, LP] = filters
     theta25[theta25 < 1e-4] = 1e-4
-    return {'wl':wls, 'bp38':theta38, 'bp85':theta85, 'bp185':theta185, 'caf2':caf2, 'nd1':nd1, 'nd2':nd2, 'nd3':nd3, 'ger':ger, 'znse':znse, 'bp25':theta25, 'sp_a':SP_A, 'sp_b':SP_B, 'lp':LP}
 
-# load_all_filters()
+    [wlsi, si] = load_rawdata('filters/Si/plot-data.csv')
+    si *= 1e2
+    si = interp1d(wlsi, si, kind='linear', bounds_error=False, fill_value=(np.asarray(si)[0], np.asarray(si)[-1]))(wls)
+    return {'wl':wls, 'bp38':theta38, 'bp85':theta85, 'bp185':theta185, 'caf2':caf2, 'nd1':nd1, 'nd2':nd2, 'nd3':nd3, 'ger':ger, 'znse':znse, 'bp25':theta25, 'sp_a':SP_A, 'sp_b':SP_B, 'lp':LP, 'si':si}
+
+load_all_filters()
