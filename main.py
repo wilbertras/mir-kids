@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import functions as f
+import figures.functions as f
 from scipy.signal import fftconvolve
 import matplotlib as mpl
 import copy
-import matplotlibcolors
+import figures.matplotlibcolors as matplotlibcolors
 
 
 def pulse_analysis(dir, kid, pread, file_type, chuncksize, nr_chuncks, pw, pw_offset, filter, lifetime, mph, mpp, iterate=True, exclude_dc=True, plot=False, tmax=5, coord='smith', response='phase', fit_tqp=None):
@@ -248,3 +248,4 @@ def pulse_analysis(dir, kid, pread, file_type, chuncksize, nr_chuncks, pw, pw_of
                 ncols=3, mode="expand", borderaxespad=0., fontsize=9)
         
     return pulses
+

@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from filters.filters import load_all_filters
 # plt.style.use('matplotlibrc')
-import matplotlibcolors
+import figures.matplotlibcolors as matplotlibcolors
 
 def planck_wl(wl, t):
     return sc.h * sc.c**2 / (wl**5 * (np.exp(sc.h * sc.c / (wl * sc.k * t)) - 1))

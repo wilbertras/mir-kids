@@ -7,10 +7,11 @@ from scipy.fft import fft, ifft
 from scipy.stats import gaussian_kde
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
-import matplotlibcolors
+import matplotlibcolors as matplotlibcolors
 
 
 def get_files(dir_path, kid_nr, p_read, type='vis'):
+    dir_path = dir_path.replace("\\", '/')
     txt = 'KID' + str(kid_nr) + '_' + str(p_read) + 'dBm__TD' + str(type)
     info_path = dir_path + '/' + txt + '*_info.dat'
     bin_path = dir_path + '/' + txt + '*.bin'
@@ -198,14 +199,15 @@ def get_single_pulses(signal, locs, pw, rise_offset, args):
         pulses_aligned = np.array(pulses).reshape((-1, pw+rise_offset)) 
         return pulses_aligned, singles
     else:
-        return [], singles
+        return  np.empty((1, pw+rise_offset)), singles
+       
 
 
 def get_single_noises(signal, locs, pw):
     noises = []
     len_signal = len(signal)
     nr_noises = 0
-    nr_req_noises = 1000
+    nr_req_noises = 10000
     t = 0
     while nr_noises < nr_req_noises and t+pw < len_signal:
         if np.any((locs >= t - pw) & (locs <= t+pw)):
@@ -346,7 +348,7 @@ def resolving_power(dist, histbin, range=None):
     return resolving_power, pdf, x, x_max, fwhm
 
 
-def fit_decaytime(pulse, pw, fit_T):
+def fit_decaytime(pulse, pw, fit_T, type='exp'):
     ''' 
     This function returns the quasiparticle regeneration time, tau_qp by fitting a function y=a*exp(-x/tau_qp) to the tail of the pulse
     '''
@@ -383,7 +385,6 @@ def exp_decay(x, a, b):
     This is a one-term exponential function used for aluminium KIDs: y=a*exp(-b * x)
     '''
     return a * np.exp(-b * x)
-
 
 
 def get_window(type, tau):

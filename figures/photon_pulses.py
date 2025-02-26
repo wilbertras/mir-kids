@@ -5,8 +5,8 @@ import matplotlib as mpl
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import functions as f
-import matplotlibcolors
+import figures.functions as f
+plt.style.use('figures/matplotlibrc')
 
 
 def get_filtered_response(dir, kid, pread, nr_req_files, filter, lifetime, coord='circle', response='phase'):
@@ -33,7 +33,7 @@ ylim_response = [-.2, .8]
 ylim_psd = [-180, -150]
 width = .2
 xlabel_response = 'Time [s]'
-ylabel_response = 'Phase [rad]'
+ylabel_response = 'Filtered response [a.u.]'
 
 path_on  = r"D:\Data\LT218Chip1_BF_20221103_MIR3_8\12KIDs mono on 3800\TD_Power"
 path_off  = r"D:\Data\LT218Chip1_BF_20221103_MIR3_8\12KIDs mono off\TD_Power"
@@ -46,20 +46,23 @@ lifetime = 250
 signal, filtered_signal = get_filtered_response(path_on, kid, pread, nr_req_files, filter, lifetime)
 noise, filtered_noise = get_filtered_response(path_off, kid, pread, nr_req_files, filter, lifetime)
 dark, filtered_dark = get_filtered_response(path_dark, kid, pread, nr_req_files, filter, lifetime)
-time = np.linspace(0, nr_req_files, len(filtered_signal))
+time_filtered = np.linspace(0, nr_req_files, len(filtered_signal))
+time = np.linspace(0, nr_req_files, len(signal))
 ax = axes['a']
-ax.plot(time, filtered_dark, label='dark', lw=width)
+# ax.plot(time, dark, lw=width, alpha=.1, c='b')
+ax.plot(time_filtered, filtered_dark, label='dark', lw=width, c='b')
 ax.set_xlim([0, nr_req_files])
 ax.set_ylim(ylim_response)
 ax.set_xlabel(xlabel_response)
 ax.set_ylabel(ylabel_response)
-ax.legend()
+# ax.legend()
 ax = axes['b']
-ax.plot(time, filtered_signal, label='3.8 $\mu$m, monochromator on', lw=width)
+# ax.plot(time, signal, lw=width, alpha=.1)
+ax.plot(time_filtered, filtered_signal, label='3.8 $\mu$m, monochromator on', lw=width, c='b')
 ax.set_xlim([0, nr_req_files])
 ax.set_ylim(ylim_response)
 ax.set_xlabel(xlabel_response)
-ax.legend()
+# ax.legend()
 
 path_on  = r"D:\Data\LT218Chip1_BF_20221025_MIR8_5\12KIDs mono off long\TD_Power"
 path_off  = r"D:\Data\LT218Chip1_BF_20221025_MIR8_5\12KIDs LN2 load - long\TD_Power"
@@ -70,13 +73,15 @@ filter = 'exp'
 lifetime = 250
 signal, filtered_signal = get_filtered_response(path_on, kid, pread, nr_req_files, filter, lifetime)
 noise, filtered_noise = get_filtered_response(path_off, kid, pread, nr_req_files, filter, lifetime)
-time = np.linspace(0, nr_req_files, len(filtered_noise))
+time_filtered = np.linspace(0, nr_req_files, len(filtered_signal))
+time = np.linspace(0, nr_req_files, len(signal))
 ax = axes['c']
-ax.plot(time, filtered_signal, label='8.5 $\mu$m, monochromator off', lw=width)
+# ax.plot(time, signal, lw=width, alpha=.1, c='b')
+ax.plot(time_filtered, filtered_signal, label='8.5 $\mu$m, monochromator off', lw=width, c='b')
 ax.set_xlim([0, nr_req_files])
 ax.set_ylim(ylim_response)
 ax.set_xlabel(xlabel_response)
-ax.legend()
+# ax.legend()
 
 path_on  = r"D:\Data\LT218Chip1_BF_20240116_MIR18_5\12KIDs_185um_BB160K\TD_Power"
 path_off  = r"D:\Data\LT218Chip1_BF_20240116_MIR18_5\12KIDs_185um_BBoff\TD_Power"
@@ -87,13 +92,15 @@ filter = 'exp'
 lifetime = 250
 signal, filtered_signal = get_filtered_response(path_on, kid, pread, nr_req_files, filter, lifetime)
 noise, filtered_noise = get_filtered_response(path_off, kid, pread, nr_req_files, filter, lifetime)
-time = np.linspace(0, nr_req_files, len(filtered_noise))
+time_filtered = np.linspace(0, nr_req_files, len(filtered_signal))
+time = np.linspace(0, nr_req_files, len(signal))
 ax = axes['d']
-ax.plot(time, filtered_signal, label='18.5 $\mu$m, $T_{bb}=160\ K$', lw=width)
+# ax.plot(time, signal, lw=width, alpha=.1, c='b')
+ax.plot(time_filtered, filtered_signal, label='18.5 $\mu$m, $T_{bb}=160\ K$', lw=width, c='b')
 ax.set_xlim([0, nr_req_files])
 ax.set_ylim(ylim_response)
 ax.set_xlabel(xlabel_response)
-ax.legend()
+# ax.legend()
 
-plt.savefig('figures/photon_pulses.pdf')
+plt.savefig('photon_pulses.pdf')
 plt.show()
