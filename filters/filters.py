@@ -5,18 +5,47 @@ from scipy.signal import savgol_filter
 import numpy as np
 import pandas as pd
 
-def load_rawdata(filename):
+def load_rawdata(filename, unit='wavenumber'):
     data = []
     name = filename
     data = pd.read_csv(name, header=None, dtype=float, sep=';|,', engine='python')
     data = np.array(data)
-    # data = data[np.argsort(data[:, 0])]
-    wavenum = data[:, 0]
-    wl = 1e-2 / wavenum
+    data = data[np.argsort(data[:, 0])]
+    if unit=='wavenumber':
+        wavenum = data[:, 0]
+        wl = 1e-2 / wavenum
+    elif unit=='nm':
+        wl = data[:, 0] * 1e-9
+    elif unit=='um':
+        wl = data[:, 0] * 1e-6
     theta = data[:, 1] * 0.01
-    return [wl, theta]
+    return wl, theta
 
 
+fig, ax = plt.subplots()
+# ax.plot(wl85, theta85)
+ax.plot(*load_rawdata('filters/8.50um filters NOC/Sample piece 77k.csv'), label='77k')
+ax.plot(*load_rawdata('filters/8.50um filters NOC/Sample piece Room Temp.csv'), label='RT')
+# ax.plot(*load_rawdata('filters/8.50um filters NOC/3.csv'), label='3')
+# ax.plot(*load_rawdata('filters/85um/Sample piece 77k.csv'), label='77k')
+# ax.plot(*load_rawdata('filters/85um/2 - 1.5-20um.CSV'), label='2')
+ax.legend()
+fig, ax = plt.subplots()
+# ax.plot(wl85, theta85)
+ax.plot(*load_rawdata('filters/3.80um filters NOC/Sample piece 77k.csv'), label='77k')
+ax.plot(*load_rawdata('filters/3.80um filters NOC/Sample piece Room Temp.csv'), label='RT')
+# ax.plot(*load_rawdata('filters/8.50um filters NOC/3.csv'), label='3')
+# ax.plot(*load_rawdata('filters/85um/Sample piece 77k.csv'), label='77k')
+# ax.plot(*load_rawdata('filters/85um/2 - 1.5-20um.CSV'), label='2')
+ax.legend()
+fig, ax = plt.subplots()
+ax.plot(*load_rawdata('filters/185um/Sample piece 77k.csv', unit='nm'), label='77k')
+ax.plot(*load_rawdata('filters/185um/2 - 16-40um.csv', unit='nm'), label='RT')
+# ax.plot(*load_rawdata('filters/8.50um filters NOC/3.csv'), label='3')
+# ax.plot(*load_rawdata('filters/85um/Sample piece 77k.csv'), label='77k')
+# ax.plot(*load_rawdata('filters/85um/2 - 1.5-20um.CSV'), label='2')
+ax.legend()
+plt.show()
 def load_xls(xls, label, wls, in_out=None):
     data = np.array(pd.read_excel(xls, label, header=0, usecols=(0, 1)))
     x = 1/(data[:, 0]*1e2)
@@ -25,22 +54,35 @@ def load_xls(xls, label, wls, in_out=None):
     return theta
 
 def load_all_filters():
-    wls = np.logspace(-6, -3, 10000)
+    wls = np.logspace(-7, -3, 10000)
 
-    wl38, theta38 = load_rawdata('filters/38um/merged.csv')
+    wl_77k, theta_77k = load_rawdata('filters/38um/Sample piece 77k.csv')
+    wl_nir, theta_nir = load_rawdata('filters/38um/3 - 08-20µm.CSV')
+    wl_mir, theta_mir = load_rawdata('filters/38um/2 - 16-100um.CSV')
+    wl_fir, theta_fir = load_rawdata('filters/38um/1 - 170-450µm.CSV')
+    wl38 = np.hstack((wl_nir, wl_77k[wl_77k>np.nanmax(wl_nir)], wl_mir[wl_mir>np.nanmax(wl_77k)], wl_fir[wl_fir>np.nanmax(wl_mir)]))
+    theta38 = np.hstack((theta_nir, theta_77k[wl_77k>np.nanmax(wl_nir)], theta_mir[wl_mir>np.nanmax(wl_77k)], theta_fir[wl_fir>np.nanmax(wl_mir)]))
     theta38 = interp1d(wl38, theta38, kind='linear', bounds_error=False, fill_value=(1e-2, 1e-2))(wls)
     theta38[theta38 < 1e-3] = 1e-3
-    theta38 = savgol_filter(theta38, 51, 3)
     x_fir = np.array([70, 90, 100, 200, 300, 400, 500])*1e-6
     y_fir = np.array([0, .025, .05, .35, .6, .7, .8])
     irfs_fir = interp1d(x_fir, y_fir, kind='linear', bounds_error=False, fill_value=(0, .8))(wls)
     theta38 += irfs_fir
 
-    wl85, theta85 = load_rawdata('filters/85um/merged.csv')
+    wl_77k, theta_77k = load_rawdata('filters/85um/Sample piece 77k.csv')
+    wl_nir, theta_nir = load_rawdata('filters/85um/3 - 0.8-2.0µm.CSV')
+    wl_mir, theta_mir = load_rawdata('filters/85um/2 - 1.5-20um.CSV')
+    wl_fir, theta_fir = load_rawdata('filters/85um/1 - 17.0-45.0µm.CSV')
+    wl85 = np.hstack((wl_nir, wl_77k[wl_77k>np.nanmax(wl_nir)], wl_mir[wl_mir>np.nanmax(wl_77k)], wl_fir[wl_fir>np.nanmax(wl_mir)]))
+    theta85 = np.hstack((theta_nir, theta_77k[wl_77k>np.nanmax(wl_nir)], theta_mir[wl_mir>np.nanmax(wl_77k)], theta_fir[wl_fir>np.nanmax(wl_mir)]))
     theta85 = interp1d(wl85, theta85, kind='linear', bounds_error=False, fill_value=(1e-2, .3))(wls)
     theta85[theta85 < 1e-3] = 1e-3
 
-    wl185, theta185 = load_rawdata('filters/185um/merged.csv')
+    wl_77k, theta_77k = load_rawdata('filters/185um/Sample piece 77k.csv', unit='nm')
+    wl_mir, theta_mir = load_rawdata('filters/185um/1 - 1.5-17um.CSV', unit='nm')
+    wl_fir, theta_fir = load_rawdata('filters/185um/2 - 16-40um.CSV', unit='nm')
+    wl185 = np.hstack((wl_mir[wl_mir>np.nanmin(wl_77k)], wl_77k, wl_fir[wl_fir>np.nanmax(wl_77k)]))
+    theta185 = np.hstack((theta_mir[wl_mir>np.nanmin(wl_77k)], theta_77k, theta_fir[wl_fir>np.nanmax(wl_77k)]))
     theta185 = interp1d(wl185, theta185, kind='linear', bounds_error=False, fill_value=(1e-2, .3))(wls)
     theta185[theta185 < 1e-3] = 1e-3
 

@@ -9,6 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from filters.filters import load_all_filters
 # plt.style.use('matplotlibrc')
 import figures.matplotlibcolors as matplotlibcolors
+plt.style.use('figures/matplotlibrc')
 
 def planck_wl(wl, t):
     return sc.h * sc.c**2 / (wl**5 * (np.exp(sc.h * sc.c / (wl * sc.k * t)) - 1))
@@ -69,9 +70,9 @@ ax.set_ylabel('Transmission [-]')
 ax = axes['d']
 ax.semilogx(wl, bp25, label='BP25', zorder=3)
 ax.fill_between(wl, bp25, 0, where=((wl < 77) & (wl > 1.67)), alpha=0.3)
-ax.semilogx(wl, sp_a, label='SP1', zorder=2)
+ax.semilogx(wl, sp_a, label='SPA', zorder=2)
 ax.fill_between(wl, sp_a, 0, where=((wl < 77)&(wl > 1.67)), alpha=0.3)
-ax.semilogx(wl, sp_b, label='SP2', zorder=1)
+ax.semilogx(wl, sp_b, label='SPB', zorder=1)
 ax.fill_between(wl, sp_b, 0, where=((wl < 77)&(wl > 1.67)), alpha=0.3)
 ax.semilogx(wl, lp, label='LP', zorder=0)
 ax.fill_between(wl, lp, 0, where=((wl < 82)&(wl > 1.67)), alpha=0.3)
@@ -124,7 +125,7 @@ bb160 = planck_wl(wl*1e-6, 160)*1e-6
 bb40 = planck_wl(wl*1e-6, 40)*1e-6
 fig, axes = plt.subplot_mosaic('a', figsize=(6,4), constrained_layout=True, sharey=True, sharex=True)
 ax = axes['a']
-ax.plot(wl, tot38*bb300, label='3.8 µm', color='b', lw=2)
+ax.plot(wl, tot38*bb300, label='3.8 µm, monochromator off', color='b', lw=2)
 # ax.fill_between(wl, tot38*bb300, 0, alpha=0.3, color='b')
 # ax.loglog(wl, bb300* A * omega, color='k')
 # ax.annotate('Planck 300 K', xy=(10,0.01), xycoords='data', size=8)
@@ -138,7 +139,7 @@ ax.set_xlim([1,100])
 ax.set_ylabel('$B_\lambda$ [$W sr^{-1}m^{-2}\mu m^{-1}$]')
 
 ax = axes['a']
-ax.loglog(wl, tot85*bb300, label='8.5 µm', color='y', lw=2)
+ax.loglog(wl, tot85*bb300, label='8.5 µm, monochromator off', color='y', lw=2)
 # ax.fill_between(wl, tot85*bb300, 0, alpha=0.3, color='y')
 # ax.loglog(wl, bb300* A * omega, color='k')
 # ax.annotate('Planck 300 K', xy=(10,0.01), xycoords='data', size=8)
@@ -149,7 +150,7 @@ ax.legend()
 # ax.set_ylabel('$B_\lambda$ [$W sr^{-1}m^{-2}\mu m^{-1}$]')
 
 # ax = axes['c']
-ax.loglog(wl, tot185*bb160, label='18.5 µm', color='o', lw=2)
+ax.loglog(wl, tot185*bb160, label='18.5 µm, $T_{\mathrm{BB}=160\ K}$', color='o', lw=2)
 # ax.fill_between(wl, tot185*bb160, 0, alpha=0.3, color='r')
 # ax.loglog(wl, bb160* A * omega, color='k')
 # ax.annotate('Planck 160 K', xy=(18.5,0.001), xycoords='data', size=8)
@@ -160,7 +161,7 @@ ax.set_xlabel('Wavelength [µm]')
 ax.set_ylabel('$B_\lambda$ [$W sr^{-1}m^{-2}\mu m^{-1}$]')
 
 # ax = axes['c']
-ax.loglog(wl, tot25*bb40, label='25 µm', color='p', lw=2)
+ax.loglog(wl, tot25*bb40, label='25 µm, $T_{\mathrm{BB}=40\ K}$', color='p', lw=2)
 # ax.fill_between(wl,  tot25*bb40, 0, alpha=0.3, color='p')
 # ax.loglog(wl, bb40* A * omega, color='k')
 # ax.annotate('Planck 40 K', xy=(25,0.001), xycoords='data', size=8)
@@ -178,6 +179,6 @@ ax.set_xlabel('Wavelength [µm]')
 # ax.legend()
 # ax.set_ylabel('$B_\lambda$ [$W sr^{-1}m^{-2}\mu m^{-1}$]')
 ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
-        ncols=4, mode="expand", borderaxespad=0.)
+        ncols=2, mode="expand", borderaxespad=0.)
 plt.savefig('figures/transmission_power_combined.pdf')
 plt.show()

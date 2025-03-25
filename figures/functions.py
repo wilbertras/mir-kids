@@ -10,9 +10,9 @@ from scipy.interpolate import interp1d
 import matplotlibcolors as matplotlibcolors
 
 
-def get_files(dir_path, kid_nr, p_read, type='vis'):
+def get_files(dir_path, kid_nr, p_read, type='vis', chip=''):
     dir_path = dir_path.replace("\\", '/')
-    txt = 'KID' + str(kid_nr) + '_' + str(p_read) + 'dBm__TD' + str(type)
+    txt = 'KID' + str(kid_nr) + '_' + str(p_read) + 'dBm_'+chip+'_TD' + str(type)
     info_path = dir_path + '/' + txt + '*_info.dat'
     bin_path = dir_path + '/' + txt + '*.bin'
     list_bin_files = glob.glob(bin_path)
@@ -289,6 +289,14 @@ def optimal_filter(pulses, pulse_model, sf, ssf_model, nxx, exclude_dc=True, one
     return H, R_sn, mean_Dxx, chi_sq
 
 
+def resolving_power_sn(H, pulse_model, sf, ssf_model, nxx):
+    norm_pulse_model = pulse_model / np.amax(pulse_model)
+    len_model = len(pulse_model)
+    Mxx = welch(norm_pulse_model, fs=sf*ssf_model, window='hamming', nperseg=len_model, noverlap=None, nfft=None, return_onesided=False)[1]
+    Rsn = np.mean(H) / (2*np.sqrt(2*np.log(2))) * np.sqrt(np.sum(Mxx/nxx))
+    return Rsn
+
+
 def resolving_power(dist, histbin, range=None):
     ''' 
     This function obtains the resolving power of a distribution by means of a kernel density estimation
@@ -354,8 +362,8 @@ def fit_decaytime(pulse, pw, fit_T, type='exp'):
     '''
     # Cut the tail from the pulse for fitting
     l = len(pulse)
-    ssf = int(l / pw)
-    t = np.linspace(0, pw, l)
+    ssf = l / pw
+    t = np.linspace(0, pw, l, endpoint=False)
 
     if isinstance(fit_T, (int, float)):
         fit_pulse = pulse[t>=fit_T]

@@ -10,6 +10,7 @@ import figures.functions as f
 from main import pulse_analysis
 import figures.matplotlibcolors as matplotlibcolors
 from filters.filters import load_all_filters
+plt.style.use('figures/matplotlibrc')
 
 
 kid = 5
@@ -29,7 +30,7 @@ temps = [3,30,50,85,100,135,142,150,160,180]
 Eph = sc.h*sc.c/(18.5e-6)
 
 filters = load_all_filters()
-wl = filters['wl']*1e6
+wl = filters['wl']
 bp185 = filters['bp185']
 znse = filters['znse']
 nd1 = filters['nd1']
@@ -120,42 +121,44 @@ def counts_vs_temp():
 
 def get_log_power(temp, a):
     inband = get_bp(bp185, .5)
-    bb = planck_wl(wl*1e-6, np.array(temp).reshape((-1,1)))
-    radiance = tot185*bb
+    bb = planck_wl(wl, np.array(temp).reshape((-1,1)))
+    radiance = tot185*bb / Eph
     return np.log10(a) + np.log10(np.trapezoid(radiance[:,inband], wl[inband]))
 
 
 def get_power(temp, a):
     inband = get_bp(tot185, 1e-19, plot=False)
-    bb = planck_wl(wl*1e-6, np.array(temp).reshape((-1,1)))
-    radiance = tot185*bb
+    bb = planck_wl(wl, np.array(temp).reshape((-1,1)))
+    radiance = tot185*bb / Eph
     return a*np.trapezoid(radiance[:,inband], wl[inband])
 
 
 def fit_efficiency():
     Nph = np.load('figures/Nph_KID5_113dBm_40s.npy')
+    absorbed_rates = Nph
     absorbed_powers = Nph*Eph
     fit_idx = 4
     # [a], pcov = curve_fit(get_log_power, temps[fit_idx:], np.log10(absorbed_powers[fit_idx:]))
-    [a], pcov = curve_fit(get_power, temps[fit_idx:], absorbed_powers[fit_idx:])
+    [a], pcov = curve_fit(get_power, temps[fit_idx:], absorbed_rates[fit_idx:])
 
     fig, ax = plt.subplots(figsize=(5,4), constrained_layout=True)
     # ax.scatter(temps[fit_idx:], absorbed_powers[fit_idx:], marker='o', facecolor='w', edgecolor='o', linewidth=2, label='In-band pulses')
-    yerr = np.sqrt(Nph)*Eph
-    ax.errorbar(temps, absorbed_powers, yerr=yerr, linestyle='None', ecolor='o', elinewidth=1, marker='o', markerfacecolor='o', markeredgecolor='o', linewidth=2, label='5$\sigma$ counts')
+    yerr = np.sqrt(Nph)
+    ax.errorbar(temps, absorbed_rates, yerr=yerr, linestyle='None', ecolor='o', elinewidth=1, marker='o', markerfacecolor='o', markeredgecolor='o', linewidth=2, label='5 $\sigma$ counts')
     # ax.errorbar(temps[:fit_idx], absorbed_powers[:fit_idx], yerr=yerr[:fit_idx], linestyle='None', ecolor='o', elinewidth=1, marker='o', markerfacecolor='w', markeredgecolor='o', linewidth=2, label='Dark counts')
     # ax.scatter(temps[:fit_idx], absorbed_powers[:fit_idx], marker='o', facecolor='w', edgecolor='o', linewidth=2)
-    secax = ax.secondary_yaxis('right', functions=(lambda x: x / Eph, lambda x: x * Eph))
-    secax.set_ylabel('Count rate [s$^{-1}$]')
+    # secax = ax.secondary_yaxis('right', functions=(lambda x: x / Eph, lambda x: x * Eph))
+    ax.set_ylabel('Count rate [s$^{-1}$]')
     t = np.linspace(3,200,100)
     # ax.semilogy(t, 10**get_log_power(t, a), ls='--', c='k', label='Fit, a=%.2e' % a)
-    ax.semilogy(t, get_power(t, a), ls='--', c='k', label='Fit of eq. (x), $\eta$=%.1e' % a)
-    ax.axhline(np.mean(absorbed_powers[:fit_idx]), ls='-.', c='k', label='Dark count rate')
-    ax.set_ylim(1e-21,1e-18)
+    ax.semilogy(t, get_power(t, a), ls='--', c='k', label='Fit eq. (x), $\eta$=%.1e' % a)
+    ax.axhline(np.mean(absorbed_rates[:fit_idx]), ls='-.', c='k', label='$N^{\mathrm{dark}}_{\mathrm{ph}}$')
+    ax.set_ylim([1e-1, 1e2])
     ax.set_xlim(0,200)
-    ax.set_ylabel('Power [W]')
+    # ax.set_ylabel('Power [W]')
     ax.set_xlabel('Temperature [K]')
-    ax.legend()
+    ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
+        ncols=3, mode="expand", borderaxespad=0., fontsize=9)
     plt.savefig('figures/photonrates.pdf')
     plt.show()
 
