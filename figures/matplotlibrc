@@ -2,7 +2,7 @@
 # https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/
 # font.family : serif
 font.serif : Computer Modern Roman
-font.size: 14 # small=10, medium=12, large=14, x-large=16
+font.size: 10 # small=10, medium=12, large=14, x-large=16
 
 lines.linewidth : 1.0
 
@@ -20,7 +20,7 @@ axes.facecolor: white
 axes.edgecolor: black
 axes.grid : True
 axes.grid.which : both
-axes.titlesize: medium
+axes.titlesize: small
 axes.labelsize: small
 xtick.labelsize: x-small
 ytick.labelsize: x-small
@@ -33,7 +33,7 @@ grid.linewidth: 0.5
 grid.alpha : .7
 
 legend.fancybox: True
-legend.fontsize: xx-small
+legend.fontsize: x-small
 xtick.direction: in
 ytick.direction: in
 

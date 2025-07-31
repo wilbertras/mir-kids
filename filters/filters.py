@@ -22,30 +22,7 @@ def load_rawdata(filename, unit='wavenumber'):
     return wl, theta
 
 
-fig, ax = plt.subplots()
-# ax.plot(wl85, theta85)
-ax.plot(*load_rawdata('filters/8.50um filters NOC/Sample piece 77k.csv'), label='77k')
-ax.plot(*load_rawdata('filters/8.50um filters NOC/Sample piece Room Temp.csv'), label='RT')
-# ax.plot(*load_rawdata('filters/8.50um filters NOC/3.csv'), label='3')
-# ax.plot(*load_rawdata('filters/85um/Sample piece 77k.csv'), label='77k')
-# ax.plot(*load_rawdata('filters/85um/2 - 1.5-20um.CSV'), label='2')
-ax.legend()
-fig, ax = plt.subplots()
-# ax.plot(wl85, theta85)
-ax.plot(*load_rawdata('filters/3.80um filters NOC/Sample piece 77k.csv'), label='77k')
-ax.plot(*load_rawdata('filters/3.80um filters NOC/Sample piece Room Temp.csv'), label='RT')
-# ax.plot(*load_rawdata('filters/8.50um filters NOC/3.csv'), label='3')
-# ax.plot(*load_rawdata('filters/85um/Sample piece 77k.csv'), label='77k')
-# ax.plot(*load_rawdata('filters/85um/2 - 1.5-20um.CSV'), label='2')
-ax.legend()
-fig, ax = plt.subplots()
-ax.plot(*load_rawdata('filters/185um/Sample piece 77k.csv', unit='nm'), label='77k')
-ax.plot(*load_rawdata('filters/185um/2 - 16-40um.csv', unit='nm'), label='RT')
-# ax.plot(*load_rawdata('filters/8.50um filters NOC/3.csv'), label='3')
-# ax.plot(*load_rawdata('filters/85um/Sample piece 77k.csv'), label='77k')
-# ax.plot(*load_rawdata('filters/85um/2 - 1.5-20um.CSV'), label='2')
-ax.legend()
-plt.show()
+
 def load_xls(xls, label, wls, in_out=None):
     data = np.array(pd.read_excel(xls, label, header=0, usecols=(0, 1)))
     x = 1/(data[:, 0]*1e2)
@@ -62,6 +39,12 @@ def load_all_filters():
     wl_fir, theta_fir = load_rawdata('filters/38um/1 - 170-450µm.CSV')
     wl38 = np.hstack((wl_nir, wl_77k[wl_77k>np.nanmax(wl_nir)], wl_mir[wl_mir>np.nanmax(wl_77k)], wl_fir[wl_fir>np.nanmax(wl_mir)]))
     theta38 = np.hstack((theta_nir, theta_77k[wl_77k>np.nanmax(wl_nir)], theta_mir[wl_mir>np.nanmax(wl_77k)], theta_fir[wl_fir>np.nanmax(wl_mir)]))
+    # wl, theta = load_rawdata('filters/38um/merged.CSV')
+    # fig, ax = plt.subplots()
+    # ax.plot(wl38, theta38)
+    # ax.plot(wl, theta, ls='--')
+    # ax.plot(wl_77k, theta_77k, ls='--')
+    # plt.show()
     theta38 = interp1d(wl38, theta38, kind='linear', bounds_error=False, fill_value=(1e-2, 1e-2))(wls)
     theta38[theta38 < 1e-3] = 1e-3
     x_fir = np.array([70, 90, 100, 200, 300, 400, 500])*1e-6
@@ -75,6 +58,12 @@ def load_all_filters():
     wl_fir, theta_fir = load_rawdata('filters/85um/1 - 17.0-45.0µm.CSV')
     wl85 = np.hstack((wl_nir, wl_77k[wl_77k>np.nanmax(wl_nir)], wl_mir[wl_mir>np.nanmax(wl_77k)], wl_fir[wl_fir>np.nanmax(wl_mir)]))
     theta85 = np.hstack((theta_nir, theta_77k[wl_77k>np.nanmax(wl_nir)], theta_mir[wl_mir>np.nanmax(wl_77k)], theta_fir[wl_fir>np.nanmax(wl_mir)]))
+    # wl, theta = load_rawdata('filters/85um/merged.CSV')
+    # fig, ax = plt.subplots()
+    # ax.plot(wl85, theta85)
+    # ax.plot(wl, theta, ls='--')
+    # ax.plot(wl_77k, theta_77k, ls='--')
+    # plt.show()
     theta85 = interp1d(wl85, theta85, kind='linear', bounds_error=False, fill_value=(1e-2, .3))(wls)
     theta85[theta85 < 1e-3] = 1e-3
 
@@ -83,8 +72,15 @@ def load_all_filters():
     wl_fir, theta_fir = load_rawdata('filters/185um/2 - 16-40um.CSV', unit='nm')
     wl185 = np.hstack((wl_mir[wl_mir>np.nanmin(wl_77k)], wl_77k, wl_fir[wl_fir>np.nanmax(wl_77k)]))
     theta185 = np.hstack((theta_mir[wl_mir>np.nanmin(wl_77k)], theta_77k, theta_fir[wl_fir>np.nanmax(wl_77k)]))
+    # wl, theta = load_rawdata('filters/185um/merged.CSV')
+    # fig, ax = plt.subplots()
+    # ax.plot(wl185, theta185)
+    # ax.plot(wl, theta, ls='--')
+    # ax.plot(wl_77k, theta_77k, ls='--')
+    # ax.plot(wl_fir, theta_fir, ls='--')
+    # plt.show()
     theta185 = interp1d(wl185, theta185, kind='linear', bounds_error=False, fill_value=(1e-2, .3))(wls)
-    theta185[theta185 < 1e-3] = 1e-3
+    theta185[theta185 < 1e-2] = 1e-2
 
     data = pd.read_csv('filters/CalciumFluoride/CaF2_Uncoated_Trans.csv', header=None, sep=';')
     wlcaf2 = data[0] / 1E6

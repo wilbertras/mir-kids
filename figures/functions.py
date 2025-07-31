@@ -69,7 +69,7 @@ def plot_bin(file_path):
 
 
 def get_data(file_list, discard=True):
-    limit = -0.5 * np.pi
+    limit = -np.pi
     amp = []
     phase = []
     removed = 0
@@ -179,7 +179,7 @@ def get_single_pulses(signal, locs, pw, rise_offset, args):
             next_loc = locs[arg+1]
             if (loc + pw >= next_loc or loc - pw - rise_offset <= prev_loc or loc + pw >= len_signal or loc - rise_offset < 0):
                 single = 0
-        elif arg == 0:
+        elif arg == 0 and not arg == nr_peaks - 1:
             next_loc = locs[arg+1]
             if nr_peaks > 1:
                 if (loc + pw >= next_loc or loc + pw >= len_signal or loc - rise_offset < 0):
@@ -207,7 +207,7 @@ def get_single_noises(signal, locs, pw):
     noises = []
     len_signal = len(signal)
     nr_noises = 0
-    nr_req_noises = 10000
+    nr_req_noises = 1000
     t = 0
     while nr_noises < nr_req_noises and t+pw < len_signal:
         if np.any((locs >= t - pw) & (locs <= t+pw)):
@@ -356,21 +356,15 @@ def resolving_power(dist, histbin, range=None):
     return resolving_power, pdf, x, x_max, fwhm
 
 
-def fit_decaytime(pulse, pw, fit_T, type='exp'):
+def fit_decaytime(pulse, fit_T, type='exp'):
     ''' 
     This function returns the quasiparticle regeneration time, tau_qp by fitting a function y=a*exp(-x/tau_qp) to the tail of the pulse
     '''
-    # Cut the tail from the pulse for fitting
-    l = len(pulse)
-    ssf = l / pw
-    t = np.linspace(0, pw, l, endpoint=False)
 
     if isinstance(fit_T, (int, float)):
-        fit_pulse = pulse[t>=fit_T]
-        # fit_t = t[t>fit_T]
+        fit_pulse = pulse[fit_T:]
     elif isinstance(fit_T, (tuple, list, np.ndarray)):
-        fit_pulse = pulse[(t>=fit_T[0]) & (t<fit_T[1])]
-        # fit_t = t[(t>fit_T[0]) & (t<fit_T[1])]
+        fit_pulse = pulse[fit_T[0]:fit_T[1]]
     else:
         raise Exception('Please input fit_T as integer or array-like') 
     fit_x = np.arange(len(fit_pulse))
@@ -382,7 +376,7 @@ def fit_decaytime(pulse, pw, fit_T, type='exp'):
     perr = np.sqrt(np.diag(pcov))
 
     # Obtain tau_qp and error
-    tau_qp = 1 / popt[1] / ssf
+    tau_qp = 1 / popt[1]
     dtau_qp = perr[1]
 
     return tau_qp, dtau_qp, popt

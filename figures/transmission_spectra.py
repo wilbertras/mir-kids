@@ -33,7 +33,7 @@ lp = filters['lp']
 si = filters['si']
 
 
-fig, axes = plt.subplot_mosaic('ab;cd;ef', figsize=(12,5), constrained_layout=True, sharex=True)
+fig, axes = plt.subplot_mosaic('ab;cd;ef', figsize=(18.5/2.54,8/2.54), constrained_layout=True, sharex=True)
 xlim = [1, 100]
 ax = axes['a']
 ax.semilogx(wl, bp38, label='BP38')
@@ -105,80 +105,83 @@ ax.set_ylim([1e-4, 1e0])
 ax.set_xlim(xlim)
 ax.set_xlabel('Wavelength [µm]')
 # ax.set_ylabel('Transmission [-]')
-plt.savefig('figures/transmission_spectra.pdf')
+# plt.savefig('figures/transmission_spectra.pdf')
 
 
 
 A = (1e-3)**2
 omega = np.pi*(10e-3)**2/(300e-3)**2
-bp38 = savgol_filter(bp38, 31, 1)
-bp85 = savgol_filter(bp85, 31, 1)
-bp185 = savgol_filter(bp185, 31, 1)
-bp25 = savgol_filter(bp25, 31, 1)
-tot38 = bp38**4*caf2**4*ger*nd2*nd3*A*omega
-tot85 = bp85**4*caf2**4*ger*nd2*nd3*A*omega
-tot185 = bp185**5*nd1*nd3*znse**2*A*omega
-tot25 = bp25**3*lp*sp_a**3*sp_b*A*omega
-
-bb300 = planck_wl(wl*1e-6, 300)*1e-6
-bb160 = planck_wl(wl*1e-6, 160)*1e-6
-bb40 = planck_wl(wl*1e-6, 40)*1e-6
-fig, axes = plt.subplot_mosaic('a', figsize=(6,4), constrained_layout=True, sharey=True, sharex=True)
+bp38 = savgol_filter(bp38, 21, 1)
+bp85 = savgol_filter(bp85, 21, 1)
+bp185 = savgol_filter(bp185, 21, 1)
+bp25 = savgol_filter(bp25, 21, 1)
+tot38 = bp38**4*caf2**4*ger*nd2*nd3
+tot85 = bp85**4*caf2**4*ger*nd2*nd3
+tot185 = bp185**5*nd1*nd3*znse**2
+tot25 = bp25**3*lp*sp_a**3*sp_b
+# np.save('25um_filterstack.npy', np.stack((wl, tot25), axis=0))
+Tbb38 = 293
+Tbb185 = 160
+Tbb25 = 24
+bb38 = planck_wl(wl*1e-6, Tbb38)*1e-6
+bb185 = planck_wl(wl*1e-6, Tbb185)*1e-6
+bb25 = planck_wl(wl*1e-6, Tbb25)*1e-6
+fig, axes = plt.subplot_mosaic('a', figsize=(8/2.54, 6/2.54), constrained_layout=True, sharey=True, sharex=True)
 ax = axes['a']
-ax.plot(wl, tot38*bb300, label='3.8 µm, monochromator off', color='b', lw=2)
-# ax.fill_between(wl, tot38*bb300, 0, alpha=0.3, color='b')
-# ax.loglog(wl, bb300* A * omega, color='k')
+ax.plot(wl, tot38*bb38*A*omega, label='3.8 µm', color='b')
+# ax.fill_between(wl, tot38*bb38, 0, alpha=0.3, color='b')
+# ax.loglog(wl, bb38* A * omega, color='k')
 # ax.annotate('Planck 300 K', xy=(10,0.01), xycoords='data', size=8)
-# cumulative_tot38_bb300 = np.cumsum(tot38 * bb300*np.diff(wl, prepend=wl[0]))
-# cumulative_tot38_bb300 = cumulative_trapezoid(tot38 * bb300, wl, initial=None)
-# ax.loglog(wl, cumulative_tot38_bb300, label='Cumulative power')
+# cumulative_tot38_bb38 = np.cumsum(tot38 * bb38*np.diff(wl, prepend=wl[0]))
+# cumulative_tot38_bb38 = cumulative_trapezoid(tot38 * bb38, wl, initial=None)
+# ax.loglog(wl, cumulative_tot38_bb38, label='Cumulative power')
 ax.legend()
 ax.set_ylim([1e-30, 1e-14])
 ax.set_xlim([1,100])
 # ax.set_xlabel('Wavelength [µm]')
-ax.set_ylabel('$B_\lambda$ [$W sr^{-1}m^{-2}\mu m^{-1}$]')
+ax.set_ylabel('$I$ [$W sr^{-1}m^{-2}\mu m^{-1}$]')
 
 ax = axes['a']
-ax.loglog(wl, tot85*bb300, label='8.5 µm, monochromator off', color='y', lw=2)
-# ax.fill_between(wl, tot85*bb300, 0, alpha=0.3, color='y')
-# ax.loglog(wl, bb300* A * omega, color='k')
+ax.loglog(wl, tot85*bb38*A*omega, label='8.5 µm', color='y')
+# ax.fill_between(wl, tot85*bb38, 0, alpha=0.3, color='y')
+# ax.loglog(wl, bb38* A * omega, color='k')
 # ax.annotate('Planck 300 K', xy=(10,0.01), xycoords='data', size=8)
-# cumulative_tot85_bb300 = cumulative_trapezoid(tot85 * bb300, wl, initial=None)
-# ax.loglog(wl[1:], cumulative_tot85_bb300, label='Cumulative power')
+# cumulative_tot85_bb38 = cumulative_trapezoid(tot85 * bb38, wl, initial=None)
+# ax.loglog(wl[1:], cumulative_tot85_bb38, label='Cumulative power')
 ax.legend()
 # ax.set_xlabel('Wavelength [µm]')
 # ax.set_ylabel('$B_\lambda$ [$W sr^{-1}m^{-2}\mu m^{-1}$]')
 
 # ax = axes['c']
-ax.loglog(wl, tot185*bb160, label='18.5 µm, $T_{\mathrm{BB}=160\ K}$', color='o', lw=2)
-# ax.fill_between(wl, tot185*bb160, 0, alpha=0.3, color='r')
-# ax.loglog(wl, bb160* A * omega, color='k')
+ax.loglog(wl, tot185*bb185*A*omega, label='18.5 µm', color='o')
+# ax.fill_between(wl, tot185*bb185, 0, alpha=0.3, color='r')
+# ax.loglog(wl, bb185* A * omega, color='k')
 # ax.annotate('Planck 160 K', xy=(18.5,0.001), xycoords='data', size=8)
-# cumulative_tot185_bb160 = cumulative_trapezoid(tot185 * bb160, wl, initial=None)
-# ax.loglog(wl[1:], cumulative_tot185_bb160, label='Cumulative power')
+# cumulative_tot185_bb185 = cumulative_trapezoid(tot185 * bb185, wl, initial=None)
+# ax.loglog(wl[1:], cumulative_tot185_bb185, label='Cumulative power')
 ax.legend()
 ax.set_xlabel('Wavelength [µm]')
-ax.set_ylabel('$B_\lambda$ [$W sr^{-1}m^{-2}\mu m^{-1}$]')
+ax.set_ylabel('Spectral radiance [$W sr^{-1}m^{-2}\mu m^{-1}$]')
 
 # ax = axes['c']
-ax.loglog(wl, tot25*bb40, label='25 µm, $T_{\mathrm{BB}=40\ K}$', color='p', lw=2)
-# ax.fill_between(wl,  tot25*bb40, 0, alpha=0.3, color='p')
-# ax.loglog(wl, bb40* A * omega, color='k')
+ax.loglog(wl, tot25*bb25*A*omega, label='25 µm', color='p')
+# ax.fill_between(wl,  tot25*bb25, 0, alpha=0.3, color='p')
+# ax.loglog(wl, bb25* A * omega, color='k')
 # ax.annotate('Planck 40 K', xy=(25,0.001), xycoords='data', size=8)
-# cumulative_tot25_bb40 = cumulative_trapezoid(tot25 * bb40, wl, initial=None)
-# ax.loglog(wl[1:], cumulative_tot25_bb40, label='Cumulative power')
+# cumulative_tot25_bb25 = cumulative_trapezoid(tot25 * bb25, wl, initial=None)
+# ax.loglog(wl[1:], cumulative_tot25_bb25, label='Cumulative power')
 ax.legend()
 ax.set_xlabel('Wavelength [µm]')
 # plt.savefig('figures/transmission_power.pdf')
 
 # fig, ax = plt.subplots()
-# ax.semilogx(wl, cumulative_tot38_bb300, label='3.8')
-# ax.semilogx(wl[1:], cumulative_tot85_bb300, label='8.5')
-# ax.semilogx(wl[1:], cumulative_tot185_bb160, label='18.5')
-# # ax.semilogx(wl[1:], cumulative_tot25_bb40, label='25')
+# ax.semilogx(wl, cumulative_tot38_bb38, label='3.8')
+# ax.semilogx(wl[1:], cumulative_tot85_bb38, label='8.5')
+# ax.semilogx(wl[1:], cumulative_tot185_bb185, label='18.5')
+# # ax.semilogx(wl[1:], cumulative_tot25_bb25, label='25')
 # ax.legend()
 # ax.set_ylabel('$B_\lambda$ [$W sr^{-1}m^{-2}\mu m^{-1}$]')
 ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
         ncols=2, mode="expand", borderaxespad=0.)
-plt.savefig('figures/transmission_power_combined.pdf')
+# plt.savefig('figures/transmission_power_combined.pdf')
 plt.show()
