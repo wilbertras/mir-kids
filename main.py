@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import figures.functions as ft
-from scipy.signal import convolve, fftconvolve, find_peaks
+from scipy.signal import convolve, fftconvolve, find_peaks, medfilt
 from scipy.optimize import curve_fit
 from scipy.fft import fft, ifft
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -267,26 +267,39 @@ def get_pulses(pulse_files, ph, pp, pw, pw_offset, chuncksize, nr_chuncks, windo
     pulses = []
     single_idx = []
     single_locs = []
+    neg_pulses = []
+    neg_single_idx = []
+    neg_single_locs = []
     while analysed_files < nr_req_files:
         if analysed_files + chuncksize > nr_files:
             chuncksize = nr_files - analysed_files
         amp, phase, _ = ft.get_data(pulse_files[analysed_files:analysed_files+chuncksize])
         signal = ft.coord_transformation(phase, amp, coord='circle', response='phase')
+        medsignal = medfilt(signal)
         len_file = int(len(signal) / chuncksize)
-        locs, _ = ft.find_pks(signal, ph, pp, window)
-        args = np.arange(len(locs), dtype=int)
+        locs, _ = ft.find_pks(medsignal, ph, pp, window)
+        neg_locs, _ = ft.find_pks(-medsignal, ph, pp, window)
         pulses_chunck, single_idx_chunck = ft.get_single_pulses(signal, locs, pw, 
-                                                                pw_offset, args)
+                                                                pw_offset)
+        neg_pulses_chunck, neg_single_idx_chunck = ft.get_single_pulses(signal, neg_locs, pw, 
+                                                                pw_offset)
         if len(pulses_chunck):
             pulses.append(pulses_chunck)
             single_idx.append(single_idx_chunck)
             single_locs.append(locs[single_idx_chunck] + len_file*analysed_files)
+        if len(neg_pulses_chunck):
+            neg_pulses.append(neg_pulses_chunck)
+            neg_single_idx.append(neg_single_idx_chunck)
+            neg_single_locs.append(neg_locs[neg_single_idx_chunck] + len_file*analysed_files)
         analysed_files += chuncksize
         print('Analysed %d out of %d files' % (analysed_files, nr_req_files), end='\r')
     single_idx = np.hstack(single_idx)
     pulses = np.vstack(pulses)
     single_locs = np.hstack(single_locs)
-    return pulses
+    neg_single_idx = np.hstack(neg_single_idx)
+    neg_pulses = np.vstack(neg_pulses)
+    neg_single_locs = np.hstack(neg_single_locs)
+    return pulses, neg_pulses
 
 
 def filter_pulses(pulses, sw, outlier_filter, doubles_fraction):
@@ -310,7 +323,7 @@ def filter_pulses(pulses, sw, outlier_filter, doubles_fraction):
     return mask
 
 
-def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw_offset, lifetime, nr_stds, chuncks, chuncksize, filter_type, fit_tqp, exclude_dc=True, outlier_filter=4, doubles_fraction=10, binsize=0.025):
+def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw_offset, lifetime, nr_stds, chuncks, chuncksize, filter_type, fit_tqp, exclude_dc=True, outlier_filter=4.5, doubles_fraction=10, binsize=0.025):
     pulse_files, info_files = ft.get_files(dir, kid, pread, type=file_type)
     nr_files = len(pulse_files)
 
@@ -323,24 +336,26 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw
     sw = round(lifetime * sff)
     exp_filter = ft.get_window(filter_type, sw)
     std = ft.get_sigma(signal, exp_filter)
+    std_raw = ft.get_sigma(signal, [])
 
     ph = noise_mph*std
     pp = ph
     noise_locs, _ = ft.find_pks(signal, ph, pp, exp_filter)
+    medsignal = medfilt(signal)
+    filtered_signal = fftconvolve(medsignal, exp_filter, mode='valid')
     noises = ft.get_single_noises(signal, noise_locs, pw+pw_offset)
 
     ph = pulse_mph*std
     pp = ph
-    locs, props = ft.find_pks(signal, ph, pp, exp_filter)
-    args = np.arange(len(locs), dtype=int)
-    pulses, single_idx = ft.get_single_pulses(signal, locs, pw, pw_offset, args)
+    locs, props = ft.find_pks(medsignal, ph, pp, exp_filter)
+    pulses, single_idx = ft.get_single_pulses(signal, locs, pw, pw_offset)
     mask = filter_pulses(pulses, lifetime/2, outlier_filter, doubles_fraction)
     pulses = pulses[mask]
     pulse_template = np.mean(pulses, axis=0)
 
     norm_pulse = pulse_template / np.amax(pulse_template)
     N = len(norm_pulse)
-    L = int(N/2+1)
+    L = round(N/2+1)
     df = sf/N
     T = 1/(sf*N)
     freqs = np.arange(0, sf/2+df, df)
@@ -354,7 +369,7 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw
     sigma = np.real(np.sqrt(1 / (T * normalisation)))
     fwhm = 2.355 * sigma
 
-    opt_filter = norm_fft.conj() / avg_psd_noises
+    opt_filter = norm_fft.conj() / avg_psd_noises / normalisation
 
     def tau_qp(x, a, tqp):
         return a*np.exp(-x/tqp)
@@ -364,7 +379,8 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw
     ax = axes['a']
     t = np.arange(0, pw+pw_offset, 1)
     ax.plot(t, pulses.T, alpha=.2, lw=.1, c='y', label='_nolegend_')
-    ax.plot(t, pulses[0], lw=.1, c='y', label='%d pulses' % len(pulses))
+    if len(pulses):
+        ax.plot(t, pulses[0], lw=.1, c='y', label='%d pulses' % len(pulses))
     ax.plot(t, pulse_template, label='mean pulse')
     ax.set_xlim([t[0], t[-1]])
     ax.set_xlabel('Time [$\mu$s]')
@@ -382,20 +398,26 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw
     ax_inset.set_yscale('log')
     ax_inset.semilogy(x, tau_qp(x, *popt), ls='--', lw=2, label='$\\tau_{qp}$=%d $\mu$s' % tqp, zorder=3)
     ax = axes['b']
-    ax.plot(t, noises[::10].T, alpha=.1, lw=.1, c='y')
-    ax.set_xlim([t[0], t[-1]])
-    ax.set_ylim([-.5, 2])
-    ax.set_xlabel('Time [$\mu$s]')
-    ax.set_ylabel('Phase [rad]')
+    ax.hist(filtered_signal, bins=np.arange(-10*std, 20*std, 0.25*std))
+    ax.axvline(noise_mph*std, c='r', lw=1, label='Noise mph=%d$\\sigma$' % noise_mph)
+    ax.set_yscale('log')
+    xticks = np.arange(-10, 21, 1)
+    ax.set_xticks(xticks*std)
+    ax.set_xticklabels(xticks)
+    ax.set_xlabel('sigma')
 
     H_opts = []
+    neg_H_opts = []
     for i, nr_std in enumerate(nr_stds):
         ph = nr_std * std
         pp = nr_std * std
-        pulses = get_pulses(pulse_files, ph, pp, pw, pw_offset, chuncksize, chuncks[i], exp_filter)
+        pulses, neg_pulses = get_pulses(pulse_files, ph, pp, pw, pw_offset, chuncksize, chuncks[i], exp_filter)
         pulses_fft = fft(pulses, axis=1)
-        H_opt = np.real(np.sum((opt_filter*pulses_fft)[:, exclude_dc:], axis=1) / normalisation)
+        neg_pulses_fft = fft(neg_pulses, axis=1)
+        H_opt = np.sum((opt_filter*pulses_fft)[:, exclude_dc:], axis=1).real
+        neg_H_opt = np.sum((opt_filter*neg_pulses_fft)[:, exclude_dc:], axis=1).real
         H_opts.append(H_opt)
+        neg_H_opts.append(neg_H_opt)
         print('\nAnalysed chunck %d out of %d' % (i+1, len(chuncks)), end='\r')
 
     mask = filter_pulses(pulses, lifetime/2, outlier_filter, doubles_fraction)
@@ -405,8 +427,7 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw
     Rsn = np.mean(H_opt) / fwhm
 
     ax = axes['c']
-    opt_filter_td = ifft(opt_filter).real
-    opt_filter_td /= np.sum(opt_filter_td)
+    opt_filter_td = ifft(opt_filter[exclude_dc:]).real
     ax.plot(opt_filter_td)
     ax = axes['d']
     pulse_psd_onesided = pulse_psd[:L]
@@ -420,13 +441,16 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw
     ax.semilogx(freqs, 10*np.log10(avg_psd_noises_onesided), label='Average Noise')
     ax = axes['e']
     bins=np.arange(-.5, 2, binsize)
-    optimal_noise = fftconvolve(noises.flatten(), opt_filter_td, mode='valid')
+    # noises = np.array([signal[i:i+pw+pw_offset] for i in range(0, len(signal)-(pw+pw_offset), pw+pw_offset)])
     noises_fft = fft(noises, axis=1)
-    optimal_noise = np.real(np.sum((opt_filter*noises_fft)[:, exclude_dc:], axis=1) / normalisation)
+    optimal_noise = np.sum((opt_filter*noises_fft)[:, exclude_dc:], axis=1).real
     ax.hist(optimal_noise, bins=bins, facecolor='gray', label='Noise', zorder=0)
+    # ax.hist(-neg_H_opts[0], bins=bins, facecolor='r', alpha=.5, label='Neg. Pulses', zorder=1)
+    print('Nr of neg pulses at lowest threshold: %d' % len(neg_H_opts[0]))
+    # ax.set_yscale('log')
     colors = ['b', 'y', 'o'] 
     for i, H_opt in enumerate(H_opts):
-        _ = ax.hist(H_opt, bins=bins, facecolor=colors[i], alpha=.75, label='%d$\sigma$' % (nr_stds[i]), zorder=i)
+        _ = ax.hist(H_opt, bins=bins, facecolor=colors[i], alpha=.75, label='%d$\sigma$' % (nr_stds[i]), zorder=i+1)
 
     max_y = np.amax(np.histogram(H_opts[-1], bins=bins)[0])
     ax.set_ylim([0, max_y*1.5])
@@ -442,13 +466,15 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw
     std_pulse = np.std(pulses, axis=0)
     ax.plot(t, mean_pulse, c=c, label='Mean pulse main')
     ax.fill_between(t, mean_pulse - std_pulse, mean_pulse + std_pulse, color=c, alpha=.2, label='$\pm1$ std')
+    popt, pcov = curve_fit(tau_qp, t[fit_tqp[0]:fit_tqp[1]], mean_pulse[fit_tqp[0]:fit_tqp[1]], p0=[1, 200])
     tqp = popt[1]
     perr = np.sqrt(np.diag(pcov))
-    ax.plot(x, tau_qp(x, *popt), c='k', ls='--', lw=1.5, label='fit $\\tau_{qp}$', zorder=3)
+    y = tau_qp(x, *popt)
+    ax.plot(x, y, c='k', ls='--', lw=1.5, label='fit $\\tau_{qp}$', zorder=3)
     xticks = np.arange(t[0], t[-1], 250)
     ax_inset = inset_axes(ax, width="50%", height="50%", loc='upper right')
     ax_inset.semilogy(t, mean_pulse, c=c, label='mean pulse')
-    ax_inset.semilogy(x, tau_qp(x, *popt), c='k', ls='--', lw=1, label='fit $\\tau_{qp}$', zorder=3)
+    ax_inset.semilogy(x, y, c='k', ls='--', lw=1, label='fit $\\tau_{qp}$', zorder=3)
     ax_inset.set_xlim([t[0], t[-1]])
     ax_inset.set_ylim([1e-3, 2])
     ax_inset.set_xticks(xticks)
@@ -468,5 +494,27 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, noise_mph, pulse_mph, pw, pw
             ncols=4, mode="expand", borderaxespad=0.)
     print('\nR = %.2f, Rsn = %.2f, %d pulses' % (R_opt, Rsn, len(pulses)))
     print('tqp = %d +- %.1f us' % (tqp, perr[1]))
-    return pulses
-    # fig.suptitle('3.8 $\mu$m', fontsize=10)
+
+    kid_object = {}
+    kid_object['dir'] = dir
+    kid_object['kid'] = kid
+    kid_object['pread'] = pread
+    kid_object['pulse template'] = norm_pulse
+    kid_object['pulses'] = pulses
+    kid_object['opt_filter'] = opt_filter
+    kid_object['Hopts'] = H_opts
+    kid_object['Hopt noise'] = optimal_noise
+    kid_object['stds'] = nr_stds
+    kid_object['std'] = std
+    kid_object['std raw'] = std_raw
+    kid_object['tqp'] = tqp
+    kid_object['fit'] = [x, y]
+    kid_object['Ropt'] = R_opt
+    kid_object['Rsn'] = Rsn
+    kid_object['kde'] = [pdf_x, pdf_y]
+    kid_object['binsize'] = binsize
+    kid_object['nxx'] = [freqs, avg_psd_noises_onesided]
+    kid_object['dxx'] = [freqs, avg_psd_pulses_onesided]
+    kid_object['mxx'] = [freqs, pulse_psd_onesided]
+    kid_object['f0'] = f0
+    return kid_object

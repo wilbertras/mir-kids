@@ -1,7 +1,5 @@
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
-import scipy.constants as sc
-from scipy.signal import savgol_filter
 import numpy as np
 import pandas as pd
 
@@ -30,8 +28,9 @@ def load_xls(xls, label, wls, in_out=None):
     theta = interp1d(x, y, fill_value=in_out, bounds_error=False)(wls)
     return theta
 
-def load_all_filters():
-    wls = np.logspace(-7, -3, 10000)
+def load_all_filters(wls=[]):
+    if not len(wls):
+        wls = np.logspace(-7, -3, 10000)
 
     wl_77k, theta_77k = load_rawdata('filters/38um/Sample piece 77k.csv')
     wl_nir, theta_nir = load_rawdata('filters/38um/3 - 08-20µm.CSV')
@@ -72,15 +71,16 @@ def load_all_filters():
     wl_fir, theta_fir = load_rawdata('filters/185um/2 - 16-40um.CSV', unit='nm')
     wl185 = np.hstack((wl_mir[wl_mir>np.nanmin(wl_77k)], wl_77k, wl_fir[wl_fir>np.nanmax(wl_77k)]))
     theta185 = np.hstack((theta_mir[wl_mir>np.nanmin(wl_77k)], theta_77k, theta_fir[wl_fir>np.nanmax(wl_77k)]))
-    # wl, theta = load_rawdata('filters/185um/merged.CSV')
+    wl, theta = load_rawdata('filters/185um/merged.CSV')
+    theta185 = interp1d(wl185, theta185, kind='linear', bounds_error=False, fill_value=(1e-3, .3))(wls)
+    theta185[theta185 < 1e-3] = 1e-3
     # fig, ax = plt.subplots()
-    # ax.plot(wl185, theta185)
-    # ax.plot(wl, theta, ls='--')
-    # ax.plot(wl_77k, theta_77k, ls='--')
-    # ax.plot(wl_fir, theta_fir, ls='--')
+    # ax.plot(wls, theta185)
+    # # ax.plot(wl, theta, ls='--')
+    # # ax.plot(wl_77k, theta_77k, ls='--')
+    # # ax.plot(wl_fir, theta_fir, ls='--')
+    # ax.set_yscale('log')
     # plt.show()
-    theta185 = interp1d(wl185, theta185, kind='linear', bounds_error=False, fill_value=(1e-2, .3))(wls)
-    theta185[theta185 < 1e-2] = 1e-2
 
     data = pd.read_csv('filters/CalciumFluoride/CaF2_Uncoated_Trans.csv', header=None, sep=';')
     wlcaf2 = data[0] / 1E6

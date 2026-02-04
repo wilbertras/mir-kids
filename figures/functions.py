@@ -8,6 +8,8 @@ from scipy.stats import gaussian_kde
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
 import matplotlibcolors as matplotlibcolors
+import pandas as pd
+import io
 
 
 def get_files(dir_path, kid_nr, p_read, type='vis', chip=''):
@@ -47,7 +49,9 @@ def bin2mat(file_path):
 
     # From I and Q data to Radius/Magnitude and Phase
     r = np.sqrt(I**2 + Q**2)
-    R = r/np.mean(r) # Normalize radius to 1
+    I /= np.mean(r) # Normalize I to 1
+    Q /= np.mean(r) # Normalize Q to 1
+    R = np.sqrt(I**2 + Q**2)
 
     P = np.arctan2(Q, I) 
     P = np.pi - P % (2 * np.pi) # Convert phase to be taken from the negative I axis
@@ -166,11 +170,13 @@ def find_pks(signal, ph, pp, window):
     return locs, props
 
 
-def get_single_pulses(signal, locs, pw, rise_offset, args):
+def get_single_pulses(signal, locs, pw, rise_offset, args=[]):
     pulses = []
     nr_peaks = len(locs)
     len_signal = len(signal)
     singles = np.zeros(nr_peaks, dtype=bool)
+    if not len(args):
+        args = np.arange(nr_peaks, dtype=int)
     for arg in args:
         loc = locs[arg]
         single = 1
@@ -203,11 +209,10 @@ def get_single_pulses(signal, locs, pw, rise_offset, args):
        
 
 
-def get_single_noises(signal, locs, pw):
+def get_single_noises(signal, locs, pw, nr_req_noises=50000):
     noises = []
     len_signal = len(signal)
     nr_noises = 0
-    nr_req_noises = 1000
     t = 0
     while nr_noises < nr_req_noises and t+pw < len_signal:
         if np.any((locs >= t - pw) & (locs <= t+pw)):
@@ -218,7 +223,8 @@ def get_single_noises(signal, locs, pw):
             nr_noises += 1  
         t += pw
     if nr_noises == 0:
-        raise Exception('No good noise segments found')
+        print('     WARNING: No noise windows could be obtained')
+        return np.empty((1, pw))
     noises = np.array(noises).reshape((-1, pw))
     return noises
 
@@ -404,5 +410,36 @@ def get_window(type, tau):
         raise Exception('Windowtype was given as %s. Please input a correct window type: "exp", "box" or "None"' % type)
     return y[::-1]
 
+def preprocess_file_fast(file_contents):
+    data_by_temperature = {}
+    current_temperature = None
+    current_data = []
 
+    # Process each line, reducing Python overhead
+    for line in file_contents:
+        # If temperature is found
+        temp_match = re.match(r'Temperature in K:(\d+\.\d+)', line)
+        data_match = re.match(r'\d+.\d', line)
+        if temp_match:
+            if current_temperature is not None and current_data:
+                # Convert current_data to a pandas DataFrame
+                data_str = "\n".join(current_data)
+                df = pd.read_csv(io.StringIO(data_str), sep='\t', header=None, names=['GHz', 'Re', 'Im'])
+                data_by_temperature[current_temperature] = df
+            
+            # Set new temperature and reset current data
+            current_temperature = float(temp_match.group(1))
+            current_data = []
+        
+        # Collect tab-separated data (GHz, dB, Rad)
+        elif data_match:
+            data = line.strip()
+            current_data.append(data)
 
+    # Save the last block of data
+    if current_temperature is not None and current_data:
+        data_str = "\n".join(current_data)
+        df = pd.read_csv(io.StringIO(data_str), sep='\t', header=None, names=['Frequency', 'dB', 'Rad'])
+        data_by_temperature[current_temperature] = df
+
+    return data_by_temperature
