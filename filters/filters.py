@@ -135,7 +135,7 @@ def load_all_filters(wls=[]):
     [theta25, SP_A, SP_B, LP] = filters
     theta25[theta25 < 1e-4] = 1e-4
 
-    [wlsi, si] = load_rawdata('filters/Si/plot-data.csv')
+    [wlsi, si] = load_rawdata('filters/Si/plot-data-highres.csv')
     si *= 1e2
     si = interp1d(wlsi, si, kind='linear', bounds_error=False, fill_value=(np.asarray(si)[0], np.asarray(si)[-1]))(wls)
     return {'wl':wls, 'bp38':theta38, 'bp85':theta85, 'bp185':theta185, 'caf2':caf2, 'nd1':nd1, 'nd2':nd2, 'nd3':nd3, 'ger':ger, 'znse':znse, 'bp25':theta25, 'sp_a':SP_A, 'sp_b':SP_B, 'lp':LP, 'si':si}
