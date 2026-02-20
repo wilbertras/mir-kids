@@ -16,7 +16,7 @@ from scipy.fft import fft, ifft
 from scipy.stats import gaussian_kde
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
-import matplotlibcolors as matplotlibcolors
+import scripts.utils.matplotlibcolors as matplotlibcolors
 import pandas as pd
 import scipy.constants as sc
 import io

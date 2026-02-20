@@ -6,7 +6,7 @@ import re
 import io
 import matplotlib.pyplot as plt
 
-from S21.Khalil import KhalilModel_magspace, KhalilSwensonModel, KhalilSwensonModelBias
+from ..dipfit.Khalil import KhalilModel_magspace, KhalilSwensonModel, KhalilSwensonModelBias
 
 
 def def_Pint(Q,Qe,Pread):
@@ -23,7 +23,6 @@ def create_result_pd():
     return df_results
     
 def add_result(df_results, kid, power, temperature, fit_result, Pint, phi):
-    
     new_entry = pd.DataFrame({"KID": [kid], "Power": [power], "Temperature": [temperature],
                               "f0": [fit_result.params['f0'].value],
                               "f0_std": [fit_result.params['f0'].stderr],
@@ -44,9 +43,10 @@ def add_result(df_results, kid, power, temperature, fit_result, Pint, phi):
         # else:
         #     new_entry[param] = [np.nan]
         #     new_entry[param + '_std'] = [np.nan]
-
-    df_results = pd.concat([df_results, new_entry], ignore_index=True)
-    
+    if df_results.empty or df_results.isna().all().all():
+        df_results = new_entry
+    else:
+        df_results = pd.concat([df_results, new_entry], ignore_index=True)
     return df_results
 
 def find_S21_files(path, kid='', pread='', append=''):
@@ -111,7 +111,7 @@ def loop_over_S21_files(path, kid=None, pread=None, model=None, plot=False, appe
                 S21_fit_line = result.eval()
                 if plot:
                     if i % plot == 0:
-                        fig, ax = plt.subplots()
+                        fig, ax = plt.subplots(figsize=(4,3))
                         result.plot_fit(ax)
                 Pint = def_Pint(result.params['Ql'].value, result.params['Qc_re'].value, Pread)
                 phi = np.arctan(2*result.params['Ql'].value*result.params['dw']/result.params['f0'].value)
@@ -119,44 +119,21 @@ def loop_over_S21_files(path, kid=None, pread=None, model=None, plot=False, appe
                 df_results = add_result(df_results, kid_id, Pread, temperature, result, Pint, phi)
                 
                 df['Mag'] = 10**((s21_values - np.mean(s21_values[0:100]))/20)
-                df['Fit'] = S21_fit_line
-                # fig, ax = plt.subplots()
-                # ax.plot(frequencies, df['Mag'])
-                # ax.plot(frequencies, df['Fit'])
-                # file_name = "KID" + str(kid_id) + "_" + str(int(Pread)) + f"dBm_{temperature*1e3:.2f}mK.csv"
-                # output_path = os.path.join(output_dir, file_name)
-
-                # Save the DataFrame (Frequency, S21, Rad) to CSV
-                # df.to_csv(output_path, index=False)
-        
-        # print("Saved data for KID " + str(kid_id) +", Pread -" +str(int(-Pread)) + ' dBm', end='\r')
-        
+                df['Fit'] = S21_fit_line        
     return df_results
 
             
 def Fit_S21(f, S21_dB, model, method=None, dw_low_power=None, guess_Q=None):
-    
-    # start with a very basic version that does nothing special....
-    
-    # The matlab versions applies a smotth here but i skip that for now
     S21_dB = S21_dB - np.mean(S21_dB[0:100]) # normalize the data
     
     S21_mag = 10**(S21_dB/20)
-    # # normalizing and removing bias slope
-    # mag_S21     = 10**((S21_dB)/20)     # |S21|
-    # left_height = np.mean(mag_S21[0:100])
-    # right_height = np.mean(mag_S21[-100:])
-    # i = np.linspace(0, len(f), len(f))
-    # line = (right_height-left_height)/(len(mag_S21)-100)*(i - 50) + left_height
-    # S21_mag = mag_S21/line    
-               
     # load the models --------|KHALILSWENSONMODEL TOEGEVOEGD|------------
     if model is not None and model.lower().strip().replace(" ", "").replace("_", "") in ("khalilswenson", "khalilswensonmodel", "swensonkhalil", "swensonkhalilmodel"): 
         Model_mag = KhalilSwensonModel
     elif model is not None and model.lower().strip().replace(" ", "").replace("_", "") in ("khalilswensonbias", "khalilswensonmodelbias", "swensonkhalilbias", "swensonkhalilmodelbias"): 
         Model_mag = KhalilSwensonModelBias
     else:
-        Model_mag = KhalilModel_magspace_noslope
+        Model_mag = KhalilModel_magspace
     model_mag = Model_mag(f, S21_mag, guess_Q)
 
 # -------------------------------|dw-WAARDE FORCEREN|-------------
@@ -166,13 +143,11 @@ def Fit_S21(f, S21_dB, model, method=None, dw_low_power=None, guess_Q=None):
     
     
     # a first estimate of the fit -------------| USE PASSED METHOD (e.g. 'least_squares') AND PROPAGATE NANS |-------------------------------------
-    if method: result_pre = model_mag.fit(S21_mag, f=f, params = model_mag.guess, method=method, nan_policy='propagate')
-    else: result_pre = model_mag.fit(S21_mag, f=f, params = model_mag.guess, nan_policy='propagate')
-    # result_pre = model_mag.fit(S21_mag, f=f, params = model_mag.guess)
-    # model_mag.plot_fit()
-        
+    if method: 
+        result_pre = model_mag.fit(S21_mag, f=f, params = model_mag.guess, method=method, nan_policy='propagate')
+    else: 
+        result_pre = model_mag.fit(S21_mag, f=f, params = model_mag.guess, nan_policy='propagate')        
     return result_pre
-    #print('fitted the data! yeah!')
     
 
 def preprocess_file_fast(file_contents):
@@ -196,8 +171,6 @@ def preprocess_file_fast(file_contents):
             current_data = []
         
         # Collect tab-separated data (GHz, dB, Rad)
-        # r'\d+\.\d+E[+-]?\d+\t'
-        # r'\d+\.\d+\t'
         elif re.match(r'\d+\.\d+E?[+-]?\d+?\t', line):
         
             current_data.append(line.strip())

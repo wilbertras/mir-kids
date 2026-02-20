@@ -19,8 +19,6 @@ def load_rawdata(filename, unit='wavenumber'):
     theta = data[:, 1] * 0.01
     return wl, theta
 
-
-
 def load_xls(xls, label, wls, in_out=None):
     data = np.array(pd.read_excel(xls, label, header=0, usecols=(0, 1)))
     x = 1/(data[:, 0]*1e2)
@@ -32,10 +30,12 @@ def load_all_filters(wls=[]):
     if not len(wls):
         wls = np.logspace(-7, -3, 10000)
 
-    wl_77k, theta_77k = load_rawdata('filters/38um/Sample piece 77k.csv')
-    wl_nir, theta_nir = load_rawdata('filters/38um/3 - 08-20µm.CSV')
-    wl_mir, theta_mir = load_rawdata('filters/38um/2 - 16-100um.CSV')
-    wl_fir, theta_fir = load_rawdata('filters/38um/1 - 170-450µm.CSV')
+    dir = 'scripts/filters/'
+
+    wl_77k, theta_77k = load_rawdata(dir + '38um/Sample piece 77k.csv')
+    wl_nir, theta_nir = load_rawdata(dir + '38um/3 - 08-20µm.CSV')
+    wl_mir, theta_mir = load_rawdata(dir + '38um/2 - 16-100um.CSV')
+    wl_fir, theta_fir = load_rawdata(dir + '38um/1 - 170-450µm.CSV')
     wl38 = np.hstack((wl_nir, wl_77k[wl_77k>np.nanmax(wl_nir)], wl_mir[wl_mir>np.nanmax(wl_77k)], wl_fir[wl_fir>np.nanmax(wl_mir)]))
     theta38 = np.hstack((theta_nir, theta_77k[wl_77k>np.nanmax(wl_nir)], theta_mir[wl_mir>np.nanmax(wl_77k)], theta_fir[wl_fir>np.nanmax(wl_mir)]))
     # wl, theta = load_rawdata('filters/38um/merged.CSV')
@@ -51,10 +51,10 @@ def load_all_filters(wls=[]):
     irfs_fir = interp1d(x_fir, y_fir, kind='linear', bounds_error=False, fill_value=(0, .8))(wls)
     theta38 += irfs_fir
 
-    wl_77k, theta_77k = load_rawdata('filters/85um/Sample piece 77k.csv')
-    wl_nir, theta_nir = load_rawdata('filters/85um/3 - 0.8-2.0µm.CSV')
-    wl_mir, theta_mir = load_rawdata('filters/85um/2 - 1.5-20um.CSV')
-    wl_fir, theta_fir = load_rawdata('filters/85um/1 - 17.0-45.0µm.CSV')
+    wl_77k, theta_77k = load_rawdata(dir + '85um/Sample piece 77k.csv')
+    wl_nir, theta_nir = load_rawdata(dir + '85um/3 - 0.8-2.0µm.CSV')
+    wl_mir, theta_mir = load_rawdata(dir + '85um/2 - 1.5-20um.CSV')
+    wl_fir, theta_fir = load_rawdata(dir + '85um/1 - 17.0-45.0µm.CSV')
     wl85 = np.hstack((wl_nir, wl_77k[wl_77k>np.nanmax(wl_nir)], wl_mir[wl_mir>np.nanmax(wl_77k)], wl_fir[wl_fir>np.nanmax(wl_mir)]))
     theta85 = np.hstack((theta_nir, theta_77k[wl_77k>np.nanmax(wl_nir)], theta_mir[wl_mir>np.nanmax(wl_77k)], theta_fir[wl_fir>np.nanmax(wl_mir)]))
     # wl, theta = load_rawdata('filters/85um/merged.CSV')
@@ -66,12 +66,12 @@ def load_all_filters(wls=[]):
     theta85 = interp1d(wl85, theta85, kind='linear', bounds_error=False, fill_value=(1e-2, .3))(wls)
     theta85[theta85 < 1e-3] = 1e-3
 
-    wl_77k, theta_77k = load_rawdata('filters/185um/Sample piece 77k.csv', unit='nm')
-    wl_mir, theta_mir = load_rawdata('filters/185um/1 - 1.5-17um.CSV', unit='nm')
-    wl_fir, theta_fir = load_rawdata('filters/185um/2 - 16-40um.CSV', unit='nm')
+    wl_77k, theta_77k = load_rawdata(dir + '185um/Sample piece 77k.csv', unit='nm')
+    wl_mir, theta_mir = load_rawdata(dir + '185um/1 - 1.5-17um.CSV', unit='nm')
+    wl_fir, theta_fir = load_rawdata(dir + '185um/2 - 16-40um.CSV', unit='nm')
     wl185 = np.hstack((wl_mir[wl_mir>np.nanmin(wl_77k)], wl_77k, wl_fir[wl_fir>np.nanmax(wl_77k)]))
     theta185 = np.hstack((theta_mir[wl_mir>np.nanmin(wl_77k)], theta_77k, theta_fir[wl_fir>np.nanmax(wl_77k)]))
-    wl, theta = load_rawdata('filters/185um/merged.CSV')
+    wl, theta = load_rawdata(dir + '185um/merged.CSV')
     theta185 = interp1d(wl185, theta185, kind='linear', bounds_error=False, fill_value=(1e-3, .3))(wls)
     theta185[theta185 < 1e-3] = 1e-3
     # fig, ax = plt.subplots()
@@ -82,7 +82,7 @@ def load_all_filters(wls=[]):
     # ax.set_yscale('log')
     # plt.show()
 
-    data = pd.read_csv('filters/CalciumFluoride/CaF2_Uncoated_Trans.csv', header=None, sep=';')
+    data = pd.read_csv(dir + 'CalciumFluoride/CaF2_Uncoated_Trans.csv', header=None, sep=';')
     wlcaf2 = data[0] / 1E6
     caf2 = data[1] / 1E2
     caf2 = interp1d(wlcaf2, caf2, kind='linear', bounds_error=False, fill_value=(1e-2, 1e-2))(wls)
@@ -91,7 +91,7 @@ def load_all_filters(wls=[]):
     caf2_fir = interp1d(x_fir, y_fir, kind='linear', bounds_error=False, fill_value=(0, .8))(wls)
     caf2 += caf2_fir
 
-    folder = 'filters/NeutralDensity/Neutral Density '
+    folder = dir + 'NeutralDensity/Neutral Density '
     data = pd.read_csv(folder + '1.csv', header=None, sep=';')
     wlnd1 = data[0] / 1E9
     nd1 = data[1] / 1E2
@@ -109,13 +109,13 @@ def load_all_filters(wls=[]):
     nd3 = interp1d(wlnd3, nd3, kind='linear', bounds_error=False, fill_value=(1e-3, np.asarray(nd3)[-1]))(wls)
     nd3[np.isnan(nd3)] = 3e-4
 
-    folder = 'filters/Germanium/Uncoated_ge_window_rawData.csv'
+    folder = dir + 'Germanium/Uncoated_ge_window_rawData.csv'
     data = pd.read_csv(folder, header=None, sep=';')
     wlger = data[0] / 1E9
     ger = data[1] / 1E2
     ger = interp1d(wlger, ger, kind='linear', bounds_error=False, fill_value=(1e-2, .5))(wls)
 
-    folder = 'filters/ZnSe/ZnSe.csv'
+    folder = dir + 'ZnSe/ZnSe.csv'
     data = pd.read_csv(folder, header=None, sep=';')
     wlznse = data[0] / 1E6
     wlznse = wlznse[300:]
@@ -123,7 +123,7 @@ def load_all_filters(wls=[]):
     znse = znse[300:]
     znse = interp1d(wlznse, znse, kind='linear', bounds_error=False, fill_value=(1e-2, 1e-2))(wls)
 
-    path = 'filters/25um/25um filterstack.xlsx'
+    path = dir + '25um/25um filterstack.xlsx'
     xls = pd.ExcelFile(path)
     filters = []
     labels = ['BP', 'HP300A', 'HP300B', 'LP600']
@@ -135,9 +135,11 @@ def load_all_filters(wls=[]):
     [theta25, SP_A, SP_B, LP] = filters
     theta25[theta25 < 1e-4] = 1e-4
 
-    [wlsi, si] = load_rawdata('filters/Si/plot-data-highres.csv')
+    [wlsi, si] = load_rawdata(dir + 'Si/plot-data-highres.csv')
     si *= 1e2
     si = interp1d(wlsi, si, kind='linear', bounds_error=False, fill_value=(np.asarray(si)[0], np.asarray(si)[-1]))(wls)
     return {'wl':wls, 'bp38':theta38, 'bp85':theta85, 'bp185':theta185, 'caf2':caf2, 'nd1':nd1, 'nd2':nd2, 'nd3':nd3, 'ger':ger, 'znse':znse, 'bp25':theta25, 'sp_a':SP_A, 'sp_b':SP_B, 'lp':LP, 'si':si}
 
-load_all_filters()
+
+if __name__ == "__main__":
+    load_all_filters()

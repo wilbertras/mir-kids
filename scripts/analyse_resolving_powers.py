@@ -1,45 +1,11 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import functions as ft
-from scipy.signal import convolve, fftconvolve, find_peaks, medfilt
-from scipy.signal import welch
+from scipy.signal import medfilt, convolve, fftconvolve, find_peaks
 from scipy.optimize import curve_fit
 from scipy.fft import fft, ifft
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-import copy
-import matplotlibcolors as matplotlibcolors
-plt.style.use('matplotlibrc')
-
-
-def get_noise_psd(dir, kid, pread, pw, filetype='med', filter=None, tqp=None, mph=None, mpp=None, nr_req_files=None, coord='circle', response='phase'):
-    dir = dir.replace("\\", '/')
-    if type(kid) is int:
-        pulse_files, info_files = ft.get_files(dir + 'TD_Power', kid, pread, type=filetype)
-    elif type(kid) is str:
-        pulse_files = [dir + '/' + kid + '.bin']
-        info_files = [dir + '/' + kid + '_info.dat']
-    f0, Q, Qc, Qi, S21_min, dt, T =  ft.get_info(info_files[0])
-    sff = 1 / dt / 1e6
-    wl = round(pw * sff)
-    nr_files = len(pulse_files)
-    if nr_req_files is not None and nr_req_files >= nr_files:
-        nr_req_files = nr_files
-    amp, phase, _ = ft.get_data(pulse_files[:nr_req_files])
-    signal = ft.coord_transformation(phase, amp, coord=coord, response=response)
-    if filter:
-        sw = round(tqp * sff)
-        window = ft.get_window(filter, sw)
-        std = ft.get_sigma(signal, window)
-        ph = mph*std
-        pp = mpp*std
-        noise_locs, _ = ft.find_pks(signal, ph, pp, window)
-        signal_noises = ft.get_single_noises(signal, noise_locs, wl)
-        fxx, nxx = welch(signal_noises, fs=int(sff*1e6), window='flattop', nperseg=wl, return_onesided=True)
-        print(nxx.shape)
-        nxx = np.mean(nxx, axis=0)
-    else:
-        fxx, nxx = welch(signal, fs=int(sff*1e6), window='flattop', nperseg=wl, return_onesided=True)
-    return ft.logsmooth(fxx, nxx)
+import matplotlib.pyplot as plt
+from . import functions as ft
+import numpy as np
+import pickle
 
 
 def get_pulses(pulse_files, ph, pp, pw, pw_offset, chuncksize, nr_chuncks, window):
@@ -108,7 +74,7 @@ def filter_pulses(pulses, sw, outlier_filter, secondary_filter):
     return mask
 
 
-def peaks_vs_thresholds(dir, kid, pread, file_type, pw, pw_offset, lifetime, nr_stds, chuncks, chuncksize, filter_type, fit_tqp, exclude_dc=True, outlier_filter=4.5, secondary_filter=.1, binsize=0.025):
+def peaks_vs_thresholds(dir, kid, pread, file_type, pw, pw_offset, lifetime, nr_stds, chuncks, chuncksize, filter_type, fit_tqp, binsize=0.025, exclude_dc=True, outlier_filter=4.5, secondary_filter=.1):
     pulse_files, info_files = ft.get_files(dir + 'TD_power', kid, pread, type=file_type)
     nr_files = len(pulse_files)
 
@@ -306,3 +272,169 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, pw, pw_offset, lifetime, nr_
     dict['mxx'] = [freqs, pulse_psd_onesided]
     dict['f0'] = f0
     return dict
+
+
+def pulse_height_distribution(path2data, name, wl, thresholds, chuncks, lifetime, fit_tqp, secondary_filter, binsize, pw=375, pw_offset=25, chuncksize=50, filter_type='exp', file_type='vis'):
+    path2kid_dict = r'%skid_dict.pkl' % path2data
+    with open(path2kid_dict, 'rb') as f:
+        kid_dict = pickle.load(f)
+    print("Loaded file %s" % path2kid_dict)
+
+    dir = kid_dict[name][wl]['dir']
+    kid = kid_dict[name][wl]['kid']
+    pread = kid_dict[name][wl]['pread']
+
+    dict = peaks_vs_thresholds(dir, kid, pread, file_type, pw, pw_offset, lifetime, thresholds, 
+                                chuncks, chuncksize, filter_type, fit_tqp, binsize=binsize, secondary_filter=secondary_filter)
+    
+    kid_dict[name][wl].update(dict)
+    with open(path2kid_dict, 'wb') as f:
+        pickle.dump(kid_dict, f)
+    print("Updated file %s" % path2kid_dict)
+
+
+def plot_distributions(path2data, name):
+    path2kid_dict = r'%skid_dict.pkl' % path2data
+    with open(path2kid_dict, 'rb') as f:
+        kid_dict = pickle.load(f)
+            
+    colors = ['b', 'y', 'o', 'p']
+    wls = ['3.8um', '8.5um', '18.5um', '25um']
+    Q_bf_dark = kid_dict[name]['BF dark']['Q']
+    xlims = [1.75, 1.5, 1, 1]
+
+    fig, axes = plt.subplot_mosaic('aaabbb;ccddee', constrained_layout=True, figsize=(18.5/2.54, 10/2.54))
+    axs = 'acde'
+    for i, key in enumerate(wls):
+        scale = Q_bf_dark / kid_dict[name][key]['Q']
+        color = colors[i]
+        item = kid_dict[name][key]
+        ax = axes[axs[i]]
+        binsize = item['binsize']
+        H_noise = item['Hopt noise']
+        H_opts = item['Hopts']
+        nr_stds = item['stds']
+        bins = np.arange(-2, 3, binsize*scale)
+        _ = ax.hist(H_noise*scale, bins=bins, facecolor='gray', label='Noise', zorder=0)
+        _ = ax.hist(H_opts[0]*scale, bins=bins, facecolor=color, alpha=.75, label='%d$\sigma$' % (nr_stds[0]), zorder=1)
+        [kdex, kdey] = item['kde']
+        # kdex *= scale
+        ax.plot(kdex*scale, kdey, c='k', ls='--', label='KDE (%d$\sigma$)' % (nr_stds[-1]), lw=1,  zorder=3)
+        ax.set_ylim([0, np.amax(kdey)*1.3])
+        ax.set_xlim([-.25, xlims[i]])
+        ax.set_ylabel('Counts')
+        ax.set_xlabel('Pulse height [rad]')
+        ax.legend(bbox_to_anchor=(0., .9, 1., .102), loc='upper left',
+                                    ncols=4, mode="expand", borderaxespad=0., handlelength=1)
+        title = '%s $\mu m$' % wls[i][:-2]
+        if i:
+            ax.set_title(title)
+        else:
+            fig.suptitle(title, fontsize=10)
+    ax = axes['a']
+    ax.annotate('far-IR', xy=(0.3, 800), xytext=(0.5, 900),
+                arrowprops=dict(facecolor='black', shrink=0.05))
+    ax.annotate('indirect', xy=(.6, 200), xytext=(.7, 500),
+                arrowprops=dict(facecolor='black', shrink=0.05))
+    ax.annotate('direct', xy=(1.46,740), xytext=(1, 850),
+                arrowprops=dict(facecolor='black', shrink=0.05))
+    ax = axes['b']
+    wl = '3.8um'
+    c='b'
+    scale = Q_bf_dark / kid_dict[name][wl]['Q']
+    pulses = kid_dict[name][wl]['pulses']
+    mean_pulse = np.mean(pulses, axis=0)*scale 
+    std_pulse = np.std(pulses, axis=0)*scale
+    t = np.arange(len(mean_pulse))
+    ax.plot(t, mean_pulse, c=c, label='Mean pulse')
+    ax.fill_between(t, mean_pulse - std_pulse, mean_pulse + std_pulse, color=c, alpha=.2, label='$\pm1$ std')
+    [x, y] = kid_dict[name][wl]['fit']
+    y *= scale
+    ax.plot(x, y, c='k', ls='--', lw=1.5, label='fit $\\tau_{qp}$', zorder=3)
+    xticks = np.linspace(t[0], t[-1]+1, 9, endpoint=True, dtype=int)    
+    ax_inset = inset_axes(ax, width="45%", height="45%", loc='center right')
+    ax_inset.semilogy(t, mean_pulse, c=c, label='mean pulse')
+    ax_inset.semilogy(x, y, c='k', ls='--', lw=1, label='fit $\\tau_{qp}$', zorder=3)
+    ax_inset.set_xlim([t[0], t[-1]+1])
+    ax_inset.set_ylim([1e-3, 2])
+    ax_inset.set_xticks(xticks[:-1:2])
+    ax_inset.set_xticklabels(xticks[:-1:2])
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticks)
+    ax.set_xlim([t[0], t[-1]+1])
+    ax.set_ylim([-.25, 2])
+    ax.set_ylabel('Pulse heights [rad]')
+    ax.set_xlabel('Time [$\mu$s]')
+    ax.legend(bbox_to_anchor=(0., .9, 1., .102), loc='upper left',ncols=3, mode="expand", borderaxespad=0., handlelength=2)
+
+    plt.savefig('figures/%s_pulse_height_distributions.pdf' % name)
+
+
+def plot_resolving_powers(path2data, name):
+    path2kid_dict = r'%skid_dict.pkl' % path2data
+    with open(path2kid_dict, 'rb') as f:
+        kid_dict = pickle.load(f)
+
+    wls = ['3.8um', '8.5um', '18.5um', '25um']
+
+    fig, axes = plt.subplot_mosaic('a', figsize=(18.5/2/2.54, 7/2.54), constrained_layout=True)
+    ax = axes['a']
+    Ropts = []
+    R0s = []
+    Reffs = []
+    Rsns = []
+    Ris = []
+    Rfilters = [83.47,83.47,83.55,13.48]
+    # Ndarks = []
+    lambdas = []
+    for wl in wls:
+        lambdas.append(float(wl[:-2]))
+        item = kid_dict[name][wl]
+        Ropts.append(item['Ropt'])
+        Rsns.append(item['Rsn'])
+        R0s.append(item['R0'])
+        # Ndarks.append([item['dcr']['3'], item['dcr']['4'], item['dcr']['5']])
+    lambdas = np.array(lambdas)
+    Reffs = np.sqrt(1/(1/np.asarray(Ropts)**2 - 1/np.asarray(Rfilters)**2))
+    Ris = np.sqrt(1/(1/np.asarray(Reffs)**2 - 1/np.asarray(Rsns)**2))
+    # Ndarks = np.array(Ndarks)
+    ax.scatter(lambdas, Reffs, label='$R$', facecolor='None', edgecolor='b', linewidth=2, marker='s', zorder=1)
+    ax.scatter(lambdas, Rsns, label='$R_{SN}$', facecolor='None', edgecolor='y', linewidth=2, marker='o', zorder=2)
+    # ax.scatter(wls, Rsns, label='$R_0$', facecolor='y', edgecolor='y', linewidth=2, marker='o', zorder=-2)
+    ax.scatter(lambdas, Ris, label='$R_{i}$', facecolor='None', edgecolor='o', linewidth=2, marker='^', zorder=3)
+    ax.scatter(25, 1.89, label='$R$, Day(2024)', marker='s', linewidth=2, facecolor='None', edgecolor='p', zorder=3)
+    ax.scatter(25, 2.92, label='$R_i$, Day(2024)', marker='^', linewidth=2, facecolor='None', edgecolor='p', zorder=3)
+    wl = np.linspace(3, 30, 1000)
+    ax.plot(wl, kid_dict[name]['25um']['Rsn']*25/wl, label='$R_{SN}^{25\mu m}/\lambda$', c='y', linestyle='-.', zorder=0)
+    Tc_Al = 1.54
+    Rfano = ft.fano(wl*1e-6, Tc_Al)
+    Rfano_wls = ft.fano(lambdas*1e-6, Tc_Al, J=.38)
+    ax.plot(wl, ft.fano(wl*1e-6, Tc_Al, J=3.1), label='$R^{substrate}_{phonon}$', c='k', linestyle=':', zorder=0)
+    ax.plot(wl, ft.fano(wl*1e-6, Tc_Al, J=.38), label='$R^{membrane}_{phonon}$', c='k', linestyle='--', zorder=0)
+    ax.plot(wl, ft.fano(wl*1e-6, Tc_Al, J=0), label='$R_{Fano}$', c='k', linestyle='-', zorder=0)
+    ax.set_ylabel('Resolving power [-]')
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    xticks = [3, 4, 5, 6, 7, 8, 9, 10, 20, 30]
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticks)
+    yticks = [1, 2, 5, 10, 20, 50]
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticks)
+    ax.set_xlim([3,30])
+    ax.set_ylim([1,50])
+    ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
+            ncols=3, mode="expand", borderaxespad=0.)
+    print('Ropts= ', Ropts)
+    print('Reff = ', Reffs)
+    print('R0s = ', R0s)
+    print('Ris = ', Ris)
+    print('Rsns = ', Rsns)
+    # print('Ndarks = \n', Ndarks)
+    ax.set_xlabel('Wavelength [µm]')
+
+    plt.savefig('figures/%s_resolving_powers.pdf' % name)
+
+
+
+
