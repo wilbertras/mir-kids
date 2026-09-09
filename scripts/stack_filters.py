@@ -226,7 +226,7 @@ def initialize_filterstacks(path2data, name):
     ax.set_ylim([1e-28, 1e-12])
     ax.set_xlim([1,100])
     ax.set_xlabel('Wavelength [µm]')
-    ax.set_ylabel('Spectral radiance [$W sr^{-1}m^{-2}\mu m^{-1}$]')
+    ax.set_ylabel('Spectral radiance [$W \mu m^{-1}$]')
     ax.legend(loc='upper center', ncols=2, mode="expand", borderaxespad=0., frameon=False, handlelength=1, columnspacing=0.25)
 
     plt.savefig('figures/%s_radiance.pdf' % name)

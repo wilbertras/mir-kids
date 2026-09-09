@@ -140,6 +140,7 @@ def analyse_dark_countrates(path2data, name, wl, confidence_intervals):
         for i, wl in enumerate(wls):
             if nr == confidence_intervals[0]:
                 kid_dict[name][wl]['dcr'] = {}
+                kid_dict[name][wl]['ddcr'] = {}
             bins = np.arange(0, 4, 0.05)
             Q_st = kid_dict[name][wl]['Q']
             template = kid_dict[name][wl]['pulse template'] 
@@ -156,11 +157,20 @@ def analyse_dark_countrates(path2data, name, wl, confidence_intervals):
             H_st = kid_dict[name][wl]['Hopts'][-1] *(Q_mux/Q_st)
             x, y = kid_dict[name][wl]['kde']
             Ropt = kid_dict[name][wl]['Ropt']
+            dRopt = kid_dict[name][wl]['dRopt']
             mu = x[np.argmax(y)]
-            std = mu/Ropt / 2.355
+            std = mu / Ropt / (2*np.sqrt(2*np.log(2)))
             lims = np.array([mu - nr*std, mu + nr*std])*(Q_mux/Q_st)
             dcr = np.sum((H_mux >=lims[0])&(H_mux <= lims[1])) / mux_dict[name]['T'] * 1e3
             kid_dict[name][wl]['dcr'][str(nr)] = dcr
+            ddcrs = []
+            for dR in dRopt:
+                R = Ropt + dR
+                dstd = mu / R / (2*np.sqrt(2*np.log(2)))
+                dlims = np.array([mu - nr*dstd, mu + nr*dstd])*(Q_mux/Q_st)
+                ddcr = np.sum((H_mux >=dlims[0])&(H_mux <= dlims[1])) / mux_dict[name]['T'] * 1e3
+                ddcrs.append(ddcr-dcr)
+            kid_dict[name][wl]['ddcr'][str(nr)] = ddcrs
             if nr == confidence_intervals[1]:
                 ax = axes[axids[i]]
                 ax.hist(H_st, bins=bins, alpha=.75, color=colors[i], zorder=2)
@@ -186,15 +196,19 @@ def analyse_dark_countrates(path2data, name, wl, confidence_intervals):
     fig, axes = plt.subplot_mosaic('a', figsize=(18.5/2/2.54, 7/2.54), constrained_layout=True)
     Ndarks = []
     lambdas = []
+    dNdarks = []
     for wl in wls:
         item= kid_dict[name][wl]
         lambdas.append(float(wl[:-2]))
         Ndarks.append([item['dcr']['3'], item['dcr']['4'], item['dcr']['5']])
+        dNdarks.append(item['ddcr']['4'])
     lambdas = np.array(lambdas)
     Ndarks = np.array(Ndarks)
+    dNdarks = np.abs(np.array(dNdarks).reshape(len(wls), 2).T)
     print('dark count rates = \n', Ndarks)
     ax = axes['a']
-    ax.plot(lambdas, Ndarks[:, 1], 'p-', c='k', label='$N_\mathrm{dark}$ 4 $\sigma$', linewidth=1, markerfacecolor='k', markeredgecolor='k', zorder=-3, markeredgewidth=2)
+    ax.errorbar(lambdas, Ndarks[:, 1], xerr=None, yerr=np.flipud(dNdarks), label='$N_\mathrm{dark}$ 4 $\sigma$', color='k', marker='p', markerfacecolor='k', markeredgecolor='None', zorder=-3, markeredgewidth=2, ms=4, capsize=2)
+    # ax.plot(lambdas, Ndarks[:, 1], 'p-', c='k', label='$N_\mathrm{dark}$ 4 $\sigma$', linewidth=1, markerfacecolor='k', markeredgecolor='k', zorder=-3, markeredgewidth=2)
     # ax.plot(wls, Ndarks[1], 'p-', c='k', label='$N_\mathrm{dark}$', linewidth=1, markerfacecolor='None', markeredgecolor='k', zorder=-3)
     ax.fill_between(lambdas, Ndarks[:, 0], Ndarks[:, 2], color='k', alpha=0.2, label='3-5 $\sigma$', zorder=-4)
     ax.set_ylabel('Dark count rate [mHz]')

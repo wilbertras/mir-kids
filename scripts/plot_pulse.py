@@ -105,5 +105,41 @@ def photon_timestreams(path2data, name, lifetime=50, filter='exp', nr_req_files=
     plt.savefig('figures/%s_time_domain.pdf' % name)
     plt.show()
 
+def photon_timestreams_185um(path2data, name, temps, lifetime=50, filter='exp', nr_req_files=3, start=10):
+    #--------------------------------------------------
+    # Load kid_dict
+    # -------------------------------------------------
+    path2kid_dict = r'%skid_dict.pkl' % path2data
+    with open(path2kid_dict, 'rb') as f:
+        kid_dict = pickle.load(f)
+    print("Loaded file %s" % path2kid_dict)
+
+    #--------------------------------------------------
+    # Analyse time domain
+    # -------------------------------------------------
+    fig, ax = plt.subplots(figsize=(18.5/2/2.54,18.5/2/2.54), constrained_layout=True)
+    ylabel_response = 'Phase response [rad]'
+    xlabel_response = 'Time [s]'
+    key = '18.5um'
+    colors = 'kyorp'
+    for i, temp in enumerate(temps):
+        kid = kid_dict[name][key]['kid']
+        pread = kid_dict[name][key]['pread']
+        path = kid_dict[name][key]['dir'].replace('160', str(temp))
+        # Q_bf_dark = kid_dict[name][key]['Q']
+        td, filtered_td = get_filtered_response(path, kid, pread, nr_req_files, filter, lifetime, start=start)
+        t = np.linspace(0, nr_req_files, len(filtered_td))
+        ax.plot(t, filtered_td+i, lw=.1, c=colors[i])
+        ax.plot([], [], lw=2, c=colors[i], label='$T_{bb}=%s\ K$' % temp)
+    ax.set_xlabel(xlabel_response)    
+    ax.set_ylabel(ylabel_response)
+    ax.set_xlim([0, nr_req_files])
+    ax.set_ylim([-.5, len(temps)])
+    ncols = len(temps)
+    ax.legend(loc='lower center', ncols=ncols, frameon=True, handlelength=1, columnspacing=.1)
+
+    plt.savefig('figures/%s_time_domain_185um_vs_Tbb.pdf' % name)
+    plt.show()
+
 if __name__ == "__main__":
     photon_timestreams()

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from . import functions as ft
 import numpy as np
 import pickle
+from copy import copy
 
 
 def get_pulses(pulse_files, ph, pp, pw, pw_offset, chuncksize, nr_chuncks, window):
@@ -161,7 +162,10 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, pw, pw_offset, lifetime, nr_
 
     H_opts = []
     neg_H_opts = []
-    for i, nr_std in enumerate(nr_stds):
+    R_sns = []
+    R_opts = []
+    pdfs = []
+    for i, nr_std in enumerate(nr_stds[::-1]):
         ph = nr_std * std
         pp = nr_std * std
         pulses, neg_pulses = get_pulses(pulse_files, ph, pp, pw, pw_offset, chuncksize, chuncks[i], exp_filter)
@@ -169,15 +173,32 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, pw, pw_offset, lifetime, nr_
         neg_pulses_fft = fft(neg_pulses, axis=1)
         H_opt = np.sum((opt_filter*pulses_fft)[:, exclude_dc:], axis=1).real
         neg_H_opt = np.sum((opt_filter*neg_pulses_fft)[:, exclude_dc:], axis=1).real
+        mask = filter_pulses(pulses, lifetime/2, outlier_filter, secondary_filter)
+        pulses = pulses[mask]
+        if i==0:
+            pulses_opt = copy(pulses)
+        if i < len(nr_stds)-1: 
+            H_opt = H_opt[mask]  
+            R_opt, pdf_y, pdf_x, _, _ = ft.resolving_power(H_opt, binsize)
+            R_sn = np.mean(H_opt) / fwhm
+            R_sns.append(R_sn)
+            R_opts.append(R_opt)
+            pdfs.append([pdf_x, pdf_y])
+        else:
+            pass
         H_opts.append(H_opt)
         neg_H_opts.append(neg_H_opt)
-        print('\nAnalysed chunck %d out of %d' % (i+1, len(chuncks)), end='\r')
+        print('\nAnalysed chunck %d out of %d' % (i+1, len(chuncks)), end='\r')  
+    H_opts = H_opts[::-1]
+    neg_H_opts = neg_H_opts[::-1]
+    R_sns = R_sns[::-1]
+    R_opts = R_opts[::-1]
+    pdfs = pdfs[::-1]
 
-    mask = filter_pulses(pulses, lifetime/2, outlier_filter, secondary_filter)
-    pulses = pulses[mask]
-    pulses_fft = pulses_fft[mask]
-    H_opts[-1] = H_opts[-1][mask]
-    Rsn = np.mean(H_opt) / fwhm
+    H_opt = H_opts[-1]
+    R_opt = R_opts[-1]
+    R_sn = R_sns[-1]
+    pdf = pdfs[-1]
 
     ax = axes['c']
     opt_filter_td = ifft(opt_filter[exclude_dc:]).real
@@ -201,22 +222,25 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, pw, pw_offset, lifetime, nr_
     # ax.hist(-neg_H_opts[0], bins=bins, facecolor='r', alpha=.5, label='Neg. Pulses', zorder=1)
     print('Nr of neg pulses at lowest threshold: %d' % len(neg_H_opts[0]))
     # ax.set_yscale('log')
-    colors = ['b', 'y', 'o'] 
-    for i, H_opt in enumerate(H_opts):
-        _ = ax.hist(H_opt, bins=bins, facecolor=colors[i], alpha=.75, label='%d$\sigma$' % (nr_stds[i]), zorder=i+1)
+    colors = ['b', 'y', 'o', 'p'] 
+    for i, H in enumerate(H_opts):
+        if i<1:
+            label = '%d$\sigma$' % (nr_stds[i])
+        else:
+            label = '%d$\sigma$, R=%.1f' % (nr_stds[i], R_opts[i-1])
+        _ = ax.hist(H, bins=bins, facecolor=colors[i], alpha=.75, label=label, zorder=i+1)
 
-    max_y = np.amax(np.histogram(H_opts[-1], bins=bins)[0])
+    max_y = np.amax(np.histogram(H_opt, bins=bins)[0])
     ax.set_ylim([0, max_y*1.5])
     ax.set_xlim([-.25,2])
     ax.set_ylabel('Counts')
     ax.set_xlabel('Pulse heights [rad]')
 
-    H_opt = H_opts[-1]
     c = colors[len(H_opts)-1]
 
     ax = axes['f']
-    mean_pulse = np.mean(pulses, axis=0)    
-    std_pulse = np.std(pulses, axis=0)
+    mean_pulse = np.mean(pulses_opt, axis=0)    
+    std_pulse = np.std(pulses_opt, axis=0)
     ax.plot(t, mean_pulse, c=c, label='Mean pulse main')
     ax.fill_between(t, mean_pulse - std_pulse, mean_pulse + std_pulse, color=c, alpha=.2, label='$\pm1$ std')
     popt, pcov = curve_fit(tau_qp, t[fit_tqp[0]:fit_tqp[1]], mean_pulse[fit_tqp[0]:fit_tqp[1]], p0=[1, 200])
@@ -241,18 +265,21 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, pw, pw_offset, lifetime, nr_
     ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',ncols=3, mode="expand", borderaxespad=0., handlelength=1.5)
 
     ax = axes['e']
-    R_opt, pdf_y, pdf_x, _, _ = ft.resolving_power(H_opt, binsize)
     _, _, _, _, noise_fwhm = ft.resolving_power(optimal_noise, binsize)
     R0 = np.mean(H_opt) / noise_fwhm
-    ax.plot(pdf_x, pdf_y, c='k', ls='--', label='KDE', lw=1)
+    ax.plot(pdf[0], pdf[1], c='k', ls='--', label='KDE', lw=1)
     ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
             ncols=4, mode="expand", borderaxespad=0.)
-    print('\nR = %.2f, Rsn = %.2f, R0 = %.2f, %d pulses' % (R_opt, Rsn, R0, len(pulses)))
+    
+    dR_opt = [R_opts[-3]-R_opt, R_opts[-2]-R_opt]
+    dR_sn = [R_sns[-3]-R_sn, R_sns[-2]-R_sn]
+
+    print('\nR = %.2f(%.2f:+%.2f), Rsn = %.2f(%.2f:+%.2f), R0 = %.2f, %d pulses' % (R_opt, dR_opt[0], dR_opt[1], R_sn, dR_sn[0], dR_sn[1], R0, len(pulses_opt)))
     print('tqp = %d +- %.1f us' % (tqp, perr[1]))
 
     dict = {}
     dict['pulse template'] = norm_pulse
-    dict['pulses'] = pulses
+    dict['pulses'] = pulses_opt
     dict['opt_filter'] = opt_filter
     dict['Hopts'] = H_opts
     dict['Hopt noise'] = optimal_noise
@@ -263,9 +290,12 @@ def peaks_vs_thresholds(dir, kid, pread, file_type, pw, pw_offset, lifetime, nr_
     dict['fit'] = [x, y]
     dict['kde'] = [pdf_x, pdf_y]
     dict['Ropt'] = R_opt
-    dict['Rsn'] = Rsn
+    dict['dRopt'] = [R_opts[-3]-R_opt, R_opts[-2]-R_opt]
+    dict['Rsn'] = R_sn
+    dict['dRsn'] = [R_sns[-3]-R_sn, R_sns[-2]-R_sn]
     dict['R0'] = R0
-    dict['kde'] = [pdf_x, pdf_y]
+    dict['dR0'] = [R0-R_sns[-2], R0-R_sns[-3]]
+    dict['kde'] = pdf
     dict['binsize'] = binsize
     dict['nxx'] = [freqs, avg_psd_noises_onesided]
     dict['dxx'] = [freqs, avg_psd_pulses_onesided]
@@ -387,23 +417,39 @@ def plot_resolving_powers(path2data, name):
     Rfilters = [83.47,83.47,83.55,13.48]
     # Ndarks = []
     lambdas = []
+    dRs = []
+    dRsns = []
     for wl in wls:
         lambdas.append(float(wl[:-2]))
         item = kid_dict[name][wl]
         Ropts.append(item['Ropt'])
         Rsns.append(item['Rsn'])
         R0s.append(item['R0'])
+        dRs.append(item['dRopt'])
+        dRsns.append(item['dRsn'])
         # Ndarks.append([item['dcr']['3'], item['dcr']['4'], item['dcr']['5']])
     lambdas = np.array(lambdas)
     Reffs = np.sqrt(1/(1/np.asarray(Ropts)**2 - 1/np.asarray(Rfilters)**2))
-    Ris = np.sqrt(1/(1/np.asarray(Reffs)**2 - 1/np.asarray(Rsns)**2))
+    Ris = np.sqrt(1/(1/np.asarray(Ropts)**2 - 1/np.asarray(Rsns)**2))
+    dRs = np.abs(np.array(dRs).reshape(len(dRs), 2).T)
+    dRsns = np.abs(np.array(dRsns).reshape(len(dRsns), 2).T)
+    dRis_plus = np.sqrt(1/(1/np.asarray(Reffs+dRs[1])**2 - 1/np.asarray(Rsns+dRsns[1])**2)) - Ris
+    dRis_min = np.sqrt(1/(1/np.asarray(Reffs-dRs[0])**2 - 1/np.asarray(Rsns-dRsns[0])**2)) - Ris
+    dRis = np.abs(np.vstack((dRis_min, dRis_plus)))
+    print(dRs)
+    print(dRsns)
+    print(dRis)
     # Ndarks = np.array(Ndarks)
-    ax.scatter(lambdas, Reffs, label='$R$', facecolor='None', edgecolor='b', linewidth=2, marker='s', zorder=1)
-    ax.scatter(lambdas, Rsns, label='$R_{SN}$', facecolor='None', edgecolor='y', linewidth=2, marker='o', zorder=2)
+
+    ax.errorbar(lambdas, Ropts, xerr=None, yerr=dRs, label='$R$', marker='o', color='b', markerfacecolor='b', markeredgecolor='None', zorder=1, capsize=2, ms=4, ecolor='b')
+    # ax.scatter(lambdas, Reffs, label='$R$', facecolor='None', edgecolor='b', linewidth=2, marker='s', zorder=1)
+    ax.errorbar(lambdas, Rsns, xerr=None, yerr=dRsns, label='$R_{SN}$', marker='s', color='y', markerfacecolor='y', markeredgecolor='None', zorder=1, capsize=2, ms=4, ecolor='y')
+    # ax.scatter(lambdas, Rsns, label='$R_{SN}$', marker='s', facecolor='y', edgecolor='None', zorder=2, s=40)
     # ax.scatter(wls, Rsns, label='$R_0$', facecolor='y', edgecolor='y', linewidth=2, marker='o', zorder=-2)
-    ax.scatter(lambdas, Ris, label='$R_{i}$', facecolor='None', edgecolor='o', linewidth=2, marker='^', zorder=3)
-    ax.scatter(25, 1.89, label='$R$, Day(2024)', marker='s', linewidth=2, facecolor='None', edgecolor='p', zorder=3)
-    ax.scatter(25, 2.92, label='$R_i$, Day(2024)', marker='^', linewidth=2, facecolor='None', edgecolor='p', zorder=3)
+    ax.errorbar(lambdas, Ris, xerr=None, yerr=dRis, label='$R_{i}$', marker='^', color='o', markerfacecolor='o', markeredgecolor='None', zorder=1, capsize=2, ms=4, ecolor='o')
+    # ax.scatter(lambdas, Ris, label='$R_{i}$', marker='^', facecolor='o', edgecolor='None', zorder=1, s=40)
+    ax.scatter(25, 1.89, label='$R$ [23]', marker='o', facecolor='p', edgecolor='None', zorder=2, s=30)
+    ax.scatter(25, 2.92, label='$R_i$ [23]', marker='^', facecolor='p', edgecolor='None', zorder=2, s=40)
     wl = np.linspace(3, 30, 1000)
     ax.plot(wl, kid_dict[name]['25um']['Rsn']*25/wl, label='$R_{SN}^{25\mu m}/\lambda$', c='y', linestyle='-.', zorder=0)
     Tc_Al = 1.54
@@ -423,7 +469,11 @@ def plot_resolving_powers(path2data, name):
     ax.set_yticklabels(yticks)
     ax.set_xlim([3,30])
     ax.set_ylim([1,50])
-    ax.legend(bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
+    handles, labels = ax.get_legend_handles_labels()
+    order = [6, 7, 8, 3, 4, 5, 2, 0, 1]  # Adjust this list to your desired order
+    handles = [handles[i] for i in order]
+    labels = [labels[i] for i in order]
+    ax.legend(handles, labels, bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
             ncols=3, mode="expand", borderaxespad=0.)
     print('Ropts= ', Ropts)
     print('Reff = ', Reffs)
