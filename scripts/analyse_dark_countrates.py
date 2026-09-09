@@ -205,11 +205,12 @@ def analyse_dark_countrates(path2data, name, wl, confidence_intervals):
     lambdas = np.array(lambdas)
     Ndarks = np.array(Ndarks)
     dNdarks = np.abs(np.array(dNdarks).reshape(len(wls), 2).T)
-    print('dark count rates = \n', Ndarks)
+    for i, wl in enumerate(wls):
+        print(f"Wavelength: {wl}")
+        print(f"Ndark: {Ndarks[i, 1]:.2f}(-{dNdarks[0, i]:.2f}:+{dNdarks[1, i]:.2f})")
+        print("-" * 30)
     ax = axes['a']
     ax.errorbar(lambdas, Ndarks[:, 1], xerr=None, yerr=np.flipud(dNdarks), label='$N_\mathrm{dark}$ 4 $\sigma$', color='k', marker='p', markerfacecolor='k', markeredgecolor='None', zorder=-3, markeredgewidth=2, ms=4, capsize=2)
-    # ax.plot(lambdas, Ndarks[:, 1], 'p-', c='k', label='$N_\mathrm{dark}$ 4 $\sigma$', linewidth=1, markerfacecolor='k', markeredgecolor='k', zorder=-3, markeredgewidth=2)
-    # ax.plot(wls, Ndarks[1], 'p-', c='k', label='$N_\mathrm{dark}$', linewidth=1, markerfacecolor='None', markeredgecolor='k', zorder=-3)
     ax.fill_between(lambdas, Ndarks[:, 0], Ndarks[:, 2], color='k', alpha=0.2, label='3-5 $\sigma$', zorder=-4)
     ax.set_ylabel('Dark count rate [mHz]')
     ax.set_xlabel('Wavelength [µm]')

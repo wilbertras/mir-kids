@@ -415,7 +415,6 @@ def plot_resolving_powers(path2data, name):
     Rsns = []
     Ris = []
     Rfilters = [83.47,83.47,83.55,13.48]
-    # Ndarks = []
     lambdas = []
     dRs = []
     dRsns = []
@@ -427,7 +426,6 @@ def plot_resolving_powers(path2data, name):
         R0s.append(item['R0'])
         dRs.append(item['dRopt'])
         dRsns.append(item['dRsn'])
-        # Ndarks.append([item['dcr']['3'], item['dcr']['4'], item['dcr']['5']])
     lambdas = np.array(lambdas)
     Reffs = np.sqrt(1/(1/np.asarray(Ropts)**2 - 1/np.asarray(Rfilters)**2))
     Ris = np.sqrt(1/(1/np.asarray(Ropts)**2 - 1/np.asarray(Rsns)**2))
@@ -436,18 +434,15 @@ def plot_resolving_powers(path2data, name):
     dRis_plus = np.sqrt(1/(1/np.asarray(Reffs+dRs[1])**2 - 1/np.asarray(Rsns+dRsns[1])**2)) - Ris
     dRis_min = np.sqrt(1/(1/np.asarray(Reffs-dRs[0])**2 - 1/np.asarray(Rsns-dRsns[0])**2)) - Ris
     dRis = np.abs(np.vstack((dRis_min, dRis_plus)))
-    print(dRs)
-    print(dRsns)
-    print(dRis)
-    # Ndarks = np.array(Ndarks)
-
+    for i, wl in enumerate(wls):
+        print(f"Wavelength: {wl}")
+        print(f"Ropts: {Ropts[i]:.2f}(-{dRs[0, i]:.2f}:+{dRs[1, i]:.2f})")
+        print(f"Rsns: {Rsns[i]:.2f}(-{dRsns[0, i]:.2f}:+{dRsns[1, i]:.2f})")
+        print(f"Ris: {Ris[i]:.2f}(-{dRis[0, i]:.2f}:+{dRis[1, i]:.2f})")
+        print("-" * 30)
     ax.errorbar(lambdas, Ropts, xerr=None, yerr=dRs, label='$R$', marker='o', color='b', markerfacecolor='b', markeredgecolor='None', zorder=1, capsize=2, ms=4, ecolor='b')
-    # ax.scatter(lambdas, Reffs, label='$R$', facecolor='None', edgecolor='b', linewidth=2, marker='s', zorder=1)
     ax.errorbar(lambdas, Rsns, xerr=None, yerr=dRsns, label='$R_{SN}$', marker='s', color='y', markerfacecolor='y', markeredgecolor='None', zorder=1, capsize=2, ms=4, ecolor='y')
-    # ax.scatter(lambdas, Rsns, label='$R_{SN}$', marker='s', facecolor='y', edgecolor='None', zorder=2, s=40)
-    # ax.scatter(wls, Rsns, label='$R_0$', facecolor='y', edgecolor='y', linewidth=2, marker='o', zorder=-2)
     ax.errorbar(lambdas, Ris, xerr=None, yerr=dRis, label='$R_{i}$', marker='^', color='o', markerfacecolor='o', markeredgecolor='None', zorder=1, capsize=2, ms=4, ecolor='o')
-    # ax.scatter(lambdas, Ris, label='$R_{i}$', marker='^', facecolor='o', edgecolor='None', zorder=1, s=40)
     ax.scatter(25, 1.89, label='$R$ [23]', marker='o', facecolor='p', edgecolor='None', zorder=2, s=30)
     ax.scatter(25, 2.92, label='$R_i$ [23]', marker='^', facecolor='p', edgecolor='None', zorder=2, s=40)
     wl = np.linspace(3, 30, 1000)
@@ -475,11 +470,6 @@ def plot_resolving_powers(path2data, name):
     labels = [labels[i] for i in order]
     ax.legend(handles, labels, bbox_to_anchor=(0., 1, 1., .102), loc='lower left',
             ncols=3, mode="expand", borderaxespad=0.)
-    print('Ropts= ', Ropts)
-    print('Reff = ', Reffs)
-    print('R0s = ', R0s)
-    print('Ris = ', Ris)
-    print('Rsns = ', Rsns)
     # print('Ndarks = \n', Ndarks)
     ax.set_xlabel('Wavelength [µm]')
 
